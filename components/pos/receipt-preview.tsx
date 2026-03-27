@@ -1,51 +1,57 @@
-'use client'
+"use client";
 
-import { formatPrice, formatDateTime } from '@/lib/mock-data'
-import type { Order } from '@/lib/types'
-import { usePOS } from '@/lib/pos-context'
+import { formatPrice, formatDateTime } from "@/lib/mock-data";
+import type { Order } from "@/lib/types";
+import { usePOS } from "@/lib/pos-context";
 
 interface ReceiptPreviewProps {
-  order: Order
-  paymentMethod?: 'cash' | 'card'
+  order: Order;
+  paymentMethod?: "cash" | "card";
 }
 
 export function ReceiptPreview({ order, paymentMethod }: ReceiptPreviewProps) {
-  const { state } = usePOS()
+  const { state } = usePOS();
 
   // Generate a fake myDATA receipt number
-  const receiptNumber = `ΕΑΦ-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 999999)).padStart(6, '0')}`
+  const receiptNumber = `ΕΑΦ-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 999999)).padStart(6, "0")}`;
 
   // Group items by VAT rate
-  const itemsByVat = order.items.reduce((acc, item) => {
-    const product = state.products.find((p) => p.id === item.productId)
-    const vatRate = product?.vatRate || 24
-    if (!acc[vatRate]) acc[vatRate] = []
-    acc[vatRate].push({ ...item, vatRate })
-    return acc
-  }, {} as Record<number, (typeof order.items[0] & { vatRate: number })[]>)
+  const itemsByVat = order.items.reduce(
+    (acc, item) => {
+      const product = state.products.find((p) => p.id === item.productId);
+      const vatRate = product?.vatRate || 24;
+      if (!acc[vatRate]) acc[vatRate] = [];
+      acc[vatRate].push({ ...item, vatRate });
+      return acc;
+    },
+    {} as Record<number, ((typeof order.items)[0] & { vatRate: number })[]>,
+  );
 
   // Calculate VAT amounts per rate
   const vatBreakdown = Object.entries(itemsByVat).map(([rate, items]) => {
-    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
-    const vatAmount = subtotal * (parseInt(rate) / (100 + parseInt(rate)))
+    const subtotal = items.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0,
+    );
+    const vatAmount = subtotal * (parseInt(rate) / (100 + parseInt(rate)));
     return {
       rate: parseInt(rate),
       subtotal,
       vatAmount,
       netAmount: subtotal - vatAmount,
-    }
-  })
+    };
+  });
 
   return (
     <div className="bg-white text-black p-6 rounded-lg font-mono text-sm max-w-sm mx-auto">
       {/* Header */}
       <div className="text-center border-b border-dashed border-gray-400 pb-4">
-        <h2 className="text-xl font-bold">EatFlow Restaurant</h2>
+        <h2 className="text-xl font-bold">Μαύρη Θάλασσα</h2>
         <p className="text-xs text-gray-600 mt-1">
-          Οδός Τεστ 123, Θεσσαλονίκη
+          Νικολάου Πλαστήρα 3, Καλαμαριά 55132
         </p>
-        <p className="text-xs text-gray-600">ΑΦΜ: 123456789</p>
-        <p className="text-xs text-gray-600">ΔΟΥ: Α&apos; Θεσσαλονίκης</p>
+        <p className="text-xs text-gray-600">ΑΦΜ: 099999999</p>
+        <p className="text-xs text-gray-600">ΔΟΥ: Καλαμαριάς</p>
       </div>
 
       {/* Receipt Info */}
@@ -64,7 +70,7 @@ export function ReceiptPreview({ order, paymentMethod }: ReceiptPreviewProps) {
         </div>
         <div className="flex justify-between mt-1">
           <span>Πληρωμή:</span>
-          <span>{paymentMethod === 'card' ? 'Κάρτα' : 'Μετρητά'}</span>
+          <span>{paymentMethod === "card" ? "Κάρτα" : "Μετρητά"}</span>
         </div>
       </div>
 
@@ -79,9 +85,13 @@ export function ReceiptPreview({ order, paymentMethod }: ReceiptPreviewProps) {
             <div className="flex-1">
               <span>{item.quantity}x </span>
               <span>{item.productName}</span>
-              <span className="text-gray-500 ml-1">@{formatPrice(item.price)}</span>
+              <span className="text-gray-500 ml-1">
+                @{formatPrice(item.price)}
+              </span>
             </div>
-            <span className="ml-2">{formatPrice(item.price * item.quantity)}</span>
+            <span className="ml-2">
+              {formatPrice(item.price * item.quantity)}
+            </span>
           </div>
         ))}
       </div>
@@ -122,10 +132,8 @@ export function ReceiptPreview({ order, paymentMethod }: ReceiptPreviewProps) {
             QR Code
           </div>
         </div>
-        <p className="mt-2 text-[10px]">
-          Σαρώστε για επαλήθευση στο aade.gr
-        </p>
+        <p className="mt-2 text-[10px]">Σαρώστε για επαλήθευση στο aade.gr</p>
       </div>
     </div>
-  )
+  );
 }

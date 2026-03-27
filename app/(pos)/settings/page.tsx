@@ -27,10 +27,11 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
 
   const [settings, setSettings] = useState({
-    restaurantName: "EatFlow Restaurant",
-    address: "Οδός Τεστ 123, Θεσσαλονίκη",
-    vatNumber: "123456789",
-    taxOffice: "Α' Θεσσαλονίκης",
+    restaurantName: "Μαύρη Θάλασσα",
+    address: "Νικολάου Πλαστήρα 3, Καλαμαριά 55132",
+    vatNumber: "099999999",
+    taxOffice: "Καλαμαριάς",
+    phone: "2310 932 542",
     printReceipt: true,
     autoPrint: false,
     soundEnabled: true,
@@ -105,6 +106,16 @@ export default function SettingsPage() {
               value={settings.address}
               onChange={(e) =>
                 setSettings({ ...settings, address: e.target.value })
+              }
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="phone">Τηλέφωνο</Label>
+            <Input
+              id="phone"
+              value={settings.phone}
+              onChange={(e) =>
+                setSettings({ ...settings, phone: e.target.value })
               }
             />
           </div>

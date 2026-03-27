@@ -1,7 +1,7 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   LayoutGrid,
   ClipboardList,
@@ -10,7 +10,10 @@ import {
   UtensilsCrossed,
   BarChart3,
   Settings,
-} from 'lucide-react'
+  Package,
+  BookOpen,
+} from "lucide-react";
+import { StockAlertBadge } from "@/components/pos/stock-alert-badge";
 import {
   Sidebar,
   SidebarContent,
@@ -21,43 +24,53 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from '@/components/ui/sidebar'
+} from "@/components/ui/sidebar";
 
 const navItems = [
   {
-    title: 'Τραπέζια',
-    href: '/tables',
+    title: "Τραπέζια",
+    href: "/tables",
     icon: LayoutGrid,
   },
   {
-    title: 'Παραγγελίες',
-    href: '/orders',
+    title: "Παραγγελίες",
+    href: "/orders",
     icon: ClipboardList,
   },
   {
-    title: 'Κουζίνα',
-    href: '/kitchen',
+    title: "Κουζίνα",
+    href: "/kitchen",
     icon: ChefHat,
   },
   {
-    title: 'Ταμείο',
-    href: '/checkout',
+    title: "Ταμείο",
+    href: "/checkout",
     icon: CreditCard,
   },
   {
-    title: 'Μενού',
-    href: '/menu',
+    title: "Μενού",
+    href: "/menu",
     icon: UtensilsCrossed,
   },
   {
-    title: 'Αναφορές',
-    href: '/reports',
+    title: "Αποθήκη",
+    href: "/inventory",
+    icon: Package,
+  },
+  {
+    title: "Συνταγές",
+    href: "/recipes",
+    icon: BookOpen,
+  },
+  {
+    title: "Αναφορές",
+    href: "/reports",
     icon: BarChart3,
   },
-]
+];
 
 export function POSSidebar() {
-  const pathname = usePathname()
+  const pathname = usePathname();
 
   return (
     <Sidebar collapsible="icon">
@@ -67,18 +80,24 @@ export function POSSidebar() {
             <UtensilsCrossed className="size-4 text-primary-foreground" />
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-            <span className="text-sm font-semibold text-sidebar-foreground">EatFlow</span>
-            <span className="text-xs text-sidebar-foreground/60">POS System</span>
+            <span className="text-sm font-semibold text-sidebar-foreground">
+              EatFlow
+            </span>
+            <span className="text-xs text-sidebar-foreground/60">
+              POS System
+            </span>
           </div>
         </Link>
       </SidebarHeader>
-      
+
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
+                const isActive =
+                  pathname === item.href ||
+                  pathname.startsWith(`${item.href}/`);
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
@@ -90,10 +109,11 @@ export function POSSidebar() {
                       <Link href={item.href}>
                         <item.icon className="size-5" />
                         <span>{item.title}</span>
+                        {item.href === "/inventory" && <StockAlertBadge />}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
-                )
+                );
               })}
             </SidebarMenu>
           </SidebarGroupContent>
@@ -113,5 +133,5 @@ export function POSSidebar() {
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }
