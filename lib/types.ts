@@ -205,6 +205,45 @@ export interface LoyaltySettings {
   stampsForFreeItem: number;
 }
 
+// === Staff Types ===
+export type StaffRole = "waiter" | "chef" | "barman" | "manager";
+export type ShiftType = "morning" | "afternoon" | "off";
+export type ChecklistType = "opening" | "closing";
+
+export interface StaffMember {
+  id: string;
+  name: string;
+  role: StaffRole;
+  pin: string;
+  phone?: string;
+  email?: string;
+  isActive: boolean;
+}
+
+export interface Shift {
+  id: string;
+  staffId: string;
+  date: string;
+  type: ShiftType;
+  clockIn?: string;
+  clockOut?: string;
+}
+
+export interface ChecklistItem {
+  id: string;
+  type: ChecklistType;
+  label: string;
+  checked: boolean;
+}
+
+export interface StaffPerformance {
+  staffId: string;
+  tablesServed: number;
+  revenue: number;
+  avgServiceTime: number;
+  tips: number;
+}
+
 // Helper types
 export type TableStatus = Table["status"];
 export type OrderStatus = Order["status"];

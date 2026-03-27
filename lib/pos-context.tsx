@@ -24,6 +24,10 @@ import type {
   Customer,
   CustomerVisit,
   LoyaltySettings,
+  StaffMember,
+  Shift,
+  ChecklistItem,
+  ChecklistType,
 } from "./types";
 import {
   initialTables,
@@ -40,6 +44,9 @@ import {
   initialCustomers,
   initialCustomerVisits,
   initialLoyaltySettings,
+  initialStaff,
+  initialShifts,
+  initialChecklist,
   generateId,
 } from "./mock-data";
 
@@ -59,6 +66,10 @@ interface POSState {
   customers: Customer[];
   customerVisits: CustomerVisit[];
   loyaltySettings: LoyaltySettings;
+  staff: StaffMember[];
+  shifts: Shift[];
+  checklist: ChecklistItem[];
+  activeStaffId: string | null;
   isLoaded: boolean;
 }
 
@@ -158,7 +169,19 @@ type POSAction =
       payload: { customerId: string; points: number };
     }
   | { type: "ADD_STAMP"; payload: string }
-  | { type: "REDEEM_STAMPS"; payload: string };
+  | { type: "REDEEM_STAMPS"; payload: string }
+  // Staff actions
+  | { type: "ADD_STAFF"; payload: StaffMember }
+  | { type: "UPDATE_STAFF"; payload: StaffMember }
+  | { type: "DELETE_STAFF"; payload: string }
+  | { type: "SET_ACTIVE_STAFF"; payload: string | null }
+  // Shift actions
+  | { type: "SET_SHIFT"; payload: Shift }
+  | { type: "CLOCK_IN"; payload: { staffId: string; time: string } }
+  | { type: "CLOCK_OUT"; payload: { staffId: string; time: string } }
+  // Checklist actions
+  | { type: "TOGGLE_CHECKLIST"; payload: string }
+  | { type: "RESET_CHECKLIST"; payload: ChecklistType };
 
 // Helper functions
 function calculateTotal(items: OrderItem[]): number {
@@ -729,6 +752,94 @@ function posReducer(state: POSState, action: POSAction): POSState {
         ),
       };
 
+    // Staff actions
+    case "ADD_STAFF":
+      return { ...state, staff: [...state.staff, action.payload] };
+
+    case "UPDATE_STAFF":
+      return {
+        ...state,
+        staff: state.staff.map((s) =>
+          s.id === action.payload.id ? action.payload : s,
+        ),
+      };
+
+    case "DELETE_STAFF":
+      return {
+        ...state,
+        staff: state.staff.filter((s) => s.id !== action.payload),
+        shifts: state.shifts.filter((sh) => sh.staffId !== action.payload),
+        activeStaffId:
+          state.activeStaffId === action.payload ? null : state.activeStaffId,
+      };
+
+    case "SET_ACTIVE_STAFF":
+      return { ...state, activeStaffId: action.payload };
+
+    // Shift actions
+    case "SET_SHIFT": {
+      const existing = state.shifts.find(
+        (sh) =>
+          sh.staffId === action.payload.staffId &&
+          sh.date === action.payload.date,
+      );
+      if (existing) {
+        return {
+          ...state,
+          shifts: state.shifts.map((sh) =>
+            sh.staffId === action.payload.staffId &&
+            sh.date === action.payload.date
+              ? action.payload
+              : sh,
+          ),
+        };
+      }
+      return { ...state, shifts: [...state.shifts, action.payload] };
+    }
+
+    case "CLOCK_IN": {
+      const today = new Date().toISOString().split("T")[0];
+      return {
+        ...state,
+        shifts: state.shifts.map((sh) =>
+          sh.staffId === action.payload.staffId && sh.date === today
+            ? { ...sh, clockIn: action.payload.time }
+            : sh,
+        ),
+      };
+    }
+
+    case "CLOCK_OUT": {
+      const todayDate = new Date().toISOString().split("T")[0];
+      return {
+        ...state,
+        shifts: state.shifts.map((sh) =>
+          sh.staffId === action.payload.staffId && sh.date === todayDate
+            ? { ...sh, clockOut: action.payload.time }
+            : sh,
+        ),
+      };
+    }
+
+    // Checklist actions
+    case "TOGGLE_CHECKLIST":
+      return {
+        ...state,
+        checklist: state.checklist.map((item) =>
+          item.id === action.payload
+            ? { ...item, checked: !item.checked }
+            : item,
+        ),
+      };
+
+    case "RESET_CHECKLIST":
+      return {
+        ...state,
+        checklist: state.checklist.map((item) =>
+          item.type === action.payload ? { ...item, checked: false } : item,
+        ),
+      };
+
     default:
       return state;
   }
@@ -750,6 +861,10 @@ const initialState: POSState = {
   customers: initialCustomers,
   customerVisits: initialCustomerVisits,
   loyaltySettings: initialLoyaltySettings,
+  staff: initialStaff,
+  shifts: initialShifts,
+  checklist: initialChecklist,
+  activeStaffId: null,
   isLoaded: false,
 };
 
@@ -782,7 +897,7 @@ const POSContext = createContext<POSContextType | undefined>(undefined);
 
 // Storage key
 const STORAGE_KEY = "eatflow-pos-state";
-const STORAGE_VERSION = 5; // Increment when schema changes
+const STORAGE_VERSION = 6; // Increment when schema changes
 
 // Provider
 export function POSProvider({ children }: { children: ReactNode }) {
@@ -829,6 +944,10 @@ export function POSProvider({ children }: { children: ReactNode }) {
           customers: state.customers,
           customerVisits: state.customerVisits,
           loyaltySettings: state.loyaltySettings,
+          staff: state.staff,
+          shifts: state.shifts,
+          checklist: state.checklist,
+          activeStaffId: state.activeStaffId,
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
       } catch (e) {

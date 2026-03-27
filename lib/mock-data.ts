@@ -15,6 +15,10 @@ import type {
   Customer,
   CustomerVisit,
   LoyaltySettings,
+  StaffMember,
+  Shift,
+  ChecklistItem,
+  StaffPerformance,
 } from "./types";
 
 export const initialZones: Zone[] = [
@@ -2431,6 +2435,279 @@ export const initialLoyaltySettings: LoyaltySettings = {
   rewardValue: 5,
   stampsForFreeItem: 10,
 };
+
+// === Staff Mock Data ===
+
+export const initialStaff: StaffMember[] = [
+  {
+    id: "staff1",
+    name: "Αλέξανδρος Κ.",
+    role: "manager",
+    pin: "1234",
+    phone: "6971234567",
+    email: "alex@blacksea.gr",
+    isActive: true,
+  },
+  {
+    id: "staff2",
+    name: "Μαρίνα Π.",
+    role: "waiter",
+    pin: "5678",
+    phone: "6972345678",
+    isActive: true,
+  },
+  {
+    id: "staff3",
+    name: "Θοδωρής Μ.",
+    role: "waiter",
+    pin: "9012",
+    phone: "6973456789",
+    isActive: true,
+  },
+  {
+    id: "staff4",
+    name: "Ελισάβετ Δ.",
+    role: "barman",
+    pin: "3456",
+    phone: "6974567890",
+    isActive: true,
+  },
+  {
+    id: "staff5",
+    name: "Στέφανος Ν.",
+    role: "chef",
+    pin: "7890",
+    phone: "6975678901",
+    isActive: true,
+  },
+  {
+    id: "staff6",
+    name: "Κατερίνα Α.",
+    role: "waiter",
+    pin: "2345",
+    phone: "6976789012",
+    isActive: false,
+  },
+];
+
+function generateCurrentWeekShifts(): Shift[] {
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  // Monday = 0 offset. getDay() returns 0 for Sunday, 1 for Monday, etc.
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + mondayOffset);
+
+  const shifts: Shift[] = [];
+  const weekDates: string[] = [];
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    weekDates.push(d.toISOString().split("T")[0]);
+  }
+
+  // Manager (staff1): always morning
+  for (let i = 0; i < 7; i++) {
+    const type = i === 6 ? "off" : "morning"; // Sunday off
+    shifts.push({
+      id: `shift-s1-${i}`,
+      staffId: "staff1",
+      date: weekDates[i],
+      type: type as Shift["type"],
+    });
+  }
+
+  // Waiter Marina (staff2): mixed shifts
+  const marinaPattern: Shift["type"][] = [
+    "morning",
+    "morning",
+    "afternoon",
+    "morning",
+    "afternoon",
+    "morning",
+    "off",
+  ];
+  for (let i = 0; i < 7; i++) {
+    shifts.push({
+      id: `shift-s2-${i}`,
+      staffId: "staff2",
+      date: weekDates[i],
+      type: marinaPattern[i],
+    });
+  }
+
+  // Waiter Thodoris (staff3): mixed shifts
+  const thodorisPattern: Shift["type"][] = [
+    "afternoon",
+    "morning",
+    "morning",
+    "afternoon",
+    "morning",
+    "off",
+    "afternoon",
+  ];
+  for (let i = 0; i < 7; i++) {
+    shifts.push({
+      id: `shift-s3-${i}`,
+      staffId: "staff3",
+      date: weekDates[i],
+      type: thodorisPattern[i],
+    });
+  }
+
+  // Barman Elisavet (staff4): afternoon shifts
+  const elisavetPattern: Shift["type"][] = [
+    "afternoon",
+    "afternoon",
+    "afternoon",
+    "off",
+    "afternoon",
+    "afternoon",
+    "afternoon",
+  ];
+  for (let i = 0; i < 7; i++) {
+    shifts.push({
+      id: `shift-s4-${i}`,
+      staffId: "staff4",
+      date: weekDates[i],
+      type: elisavetPattern[i],
+    });
+  }
+
+  // Chef Stefanos (staff5): alternating morning/afternoon
+  const stefanosPattern: Shift["type"][] = [
+    "morning",
+    "afternoon",
+    "morning",
+    "afternoon",
+    "morning",
+    "morning",
+    "off",
+  ];
+  for (let i = 0; i < 7; i++) {
+    shifts.push({
+      id: `shift-s5-${i}`,
+      staffId: "staff5",
+      date: weekDates[i],
+      type: stefanosPattern[i],
+    });
+  }
+
+  return shifts;
+}
+
+export const initialShifts: Shift[] = generateCurrentWeekShifts();
+
+export const initialChecklist: ChecklistItem[] = [
+  // Opening
+  {
+    id: "cl-o1",
+    type: "opening",
+    label: "Έλεγχος καθαριότητας χώρου",
+    checked: false,
+  },
+  {
+    id: "cl-o2",
+    type: "opening",
+    label: "Ενεργοποίηση POS συστήματος",
+    checked: false,
+  },
+  {
+    id: "cl-o3",
+    type: "opening",
+    label: "Έλεγχος αποθήκης / πρώτων υλών",
+    checked: false,
+  },
+  {
+    id: "cl-o4",
+    type: "opening",
+    label: "Προετοιμασία τραπεζιών",
+    checked: false,
+  },
+  {
+    id: "cl-o5",
+    type: "opening",
+    label: "Έλεγχος εξοπλισμού κουζίνας",
+    checked: false,
+  },
+  {
+    id: "cl-o6",
+    type: "opening",
+    label: "Ενημέρωση μενού (εξαντλημένα)",
+    checked: false,
+  },
+  // Closing
+  {
+    id: "cl-c1",
+    type: "closing",
+    label: "Κλείσιμο ταμείου / μέτρηση",
+    checked: false,
+  },
+  {
+    id: "cl-c2",
+    type: "closing",
+    label: "Καθαρισμός κουζίνας",
+    checked: false,
+  },
+  {
+    id: "cl-c3",
+    type: "closing",
+    label: "Καθαρισμός τραπεζιών & αίθουσας",
+    checked: false,
+  },
+  { id: "cl-c4", type: "closing", label: "Έλεγχος αποθήκης", checked: false },
+  {
+    id: "cl-c5",
+    type: "closing",
+    label: "Κλείδωμα πορτών & παραθύρων",
+    checked: false,
+  },
+  {
+    id: "cl-c6",
+    type: "closing",
+    label: "Απενεργοποίηση εξοπλισμού",
+    checked: false,
+  },
+];
+
+export const initialStaffPerformance: StaffPerformance[] = [
+  {
+    staffId: "staff1",
+    tablesServed: 8,
+    revenue: 1200,
+    avgServiceTime: 10,
+    tips: 45,
+  },
+  {
+    staffId: "staff2",
+    tablesServed: 22,
+    revenue: 2400,
+    avgServiceTime: 8,
+    tips: 120,
+  },
+  {
+    staffId: "staff3",
+    tablesServed: 18,
+    revenue: 1800,
+    avgServiceTime: 12,
+    tips: 85,
+  },
+  {
+    staffId: "staff4",
+    tablesServed: 0,
+    revenue: 950,
+    avgServiceTime: 5,
+    tips: 60,
+  },
+  {
+    staffId: "staff5",
+    tablesServed: 0,
+    revenue: 0,
+    avgServiceTime: 0,
+    tips: 0,
+  },
+];
 
 // Helper function to generate unique IDs
 export function generateId(): string {
