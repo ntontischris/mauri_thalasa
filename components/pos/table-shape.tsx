@@ -51,20 +51,27 @@ function renderTableInfo(table: Table, order?: Order) {
 export function TableShape({
   table,
   order,
+  zoneColor,
   onClick,
   isDragging,
   className,
 }: TableShapeProps) {
+  // Use zone color for available tables, status color for occupied/bill/dirty
+  const useZoneColor = table.status === "available" && zoneColor;
+
   return (
     <button
       onClick={onClick}
-      style={{ transform: `rotate(${table.rotation}deg)` }}
+      style={{
+        transform: `rotate(${table.rotation}deg)`,
+        ...(useZoneColor ? { backgroundColor: zoneColor } : {}),
+      }}
       className={cn(
         "flex cursor-pointer flex-col items-center justify-center gap-0.5",
         "text-white font-bold",
         "shadow-md transition-all duration-150",
-        "hover:scale-110 hover:shadow-lg active:scale-95",
-        STATUS_COLORS[table.status],
+        "hover:scale-110 hover:shadow-lg hover:brightness-110 active:scale-95",
+        !useZoneColor && STATUS_COLORS[table.status],
         SHAPE_CLASSES[table.shape],
         isDragging && "opacity-50 scale-110 shadow-xl",
         className,
