@@ -7,6 +7,9 @@ import { cn } from "@/lib/utils";
 import { useInventory } from "@/hooks/use-inventory";
 import { IngredientTable } from "@/components/pos/ingredient-table";
 import { IngredientForm } from "@/components/pos/ingredient-form";
+import { WasteForm } from "@/components/pos/waste-form";
+import { WasteLog } from "@/components/pos/waste-log";
+import { SupplierList } from "@/components/pos/supplier-list";
 import type { Ingredient } from "@/lib/types";
 
 type Tab = "ingredients" | "waste" | "suppliers";
@@ -90,12 +93,13 @@ export default function InventoryPage() {
       )}
 
       {selectedTab === "waste" && (
-        <p className="text-muted-foreground">Σπατάλη (σύντομα)</p>
+        <div className="space-y-6">
+          <WasteForm />
+          <WasteLog />
+        </div>
       )}
 
-      {selectedTab === "suppliers" && (
-        <p className="text-muted-foreground">Προμηθευτές (σύντομα)</p>
-      )}
+      {selectedTab === "suppliers" && <SupplierList />}
 
       {/* Ingredient Form Dialog */}
       <IngredientForm
