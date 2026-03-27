@@ -459,6 +459,7 @@ const POSContext = createContext<POSContextType | undefined>(undefined);
 
 // Storage key
 const STORAGE_KEY = "eatflow-pos-state";
+const STORAGE_VERSION = 2; // Increment when schema changes
 
 // Provider
 export function POSProvider({ children }: { children: ReactNode }) {
@@ -470,7 +471,17 @@ export function POSProvider({ children }: { children: ReactNode }) {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        dispatch({ type: "LOAD_STATE", payload: parsed });
+        // Check if data has the new schema (tables with zoneId field)
+        const isValidSchema =
+          parsed._version === STORAGE_VERSION ||
+          (parsed.tables?.[0]?.zoneId !== undefined &&
+            parsed.zones !== undefined);
+        if (isValidSchema) {
+          dispatch({ type: "LOAD_STATE", payload: parsed });
+        } else {
+          // Old schema — clear and use fresh initial data
+          localStorage.removeItem(STORAGE_KEY);
+        }
       }
     } catch (e) {
       console.error("Failed to load state from localStorage:", e);
@@ -483,6 +494,7 @@ export function POSProvider({ children }: { children: ReactNode }) {
     if (state.isLoaded) {
       try {
         const toStore = {
+          _version: STORAGE_VERSION,
           tables: state.tables,
           categories: state.categories,
           products: state.products,
