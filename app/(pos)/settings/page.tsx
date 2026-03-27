@@ -21,6 +21,7 @@ import {
   initialProducts,
 } from "@/lib/mock-data";
 import { FloorPlanEditor } from "@/components/pos/floor-plan-editor";
+import { AISettings } from "@/components/pos/ai-settings";
 
 export default function SettingsPage() {
   const { dispatch } = usePOS();
@@ -76,6 +77,9 @@ export default function SettingsPage() {
           <FloorPlanEditor />
         </CardContent>
       </Card>
+
+      {/* AI Settings */}
+      <AISettings />
 
       {/* Business Info */}
       <Card>
