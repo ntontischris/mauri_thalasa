@@ -171,6 +171,40 @@ export interface SupplierOrder {
   notes?: string;
 }
 
+// === CRM & Loyalty Types ===
+
+export interface Customer {
+  id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  birthday?: string;
+  notes?: string;
+  isVip: boolean;
+  allergies: string[];
+  tags: string[];
+  loyaltyPoints: number;
+  stampCount: number;
+  createdAt: string;
+}
+
+export interface CustomerVisit {
+  id: string;
+  customerId: string;
+  orderId: string;
+  date: string;
+  tableNumber: number;
+  total: number;
+  items: string[];
+}
+
+export interface LoyaltySettings {
+  pointsPerEuro: number;
+  pointsForReward: number;
+  rewardValue: number;
+  stampsForFreeItem: number;
+}
+
 // Helper types
 export type TableStatus = Table["status"];
 export type OrderStatus = Order["status"];

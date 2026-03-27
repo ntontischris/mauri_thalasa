@@ -21,6 +21,9 @@ import type {
   WasteEntry,
   Supplier,
   SupplierOrder,
+  Customer,
+  CustomerVisit,
+  LoyaltySettings,
 } from "./types";
 import {
   initialTables,
@@ -34,6 +37,9 @@ import {
   initialWasteLog,
   initialSuppliers,
   initialSupplierOrders,
+  initialCustomers,
+  initialCustomerVisits,
+  initialLoyaltySettings,
   generateId,
 } from "./mock-data";
 
@@ -50,6 +56,9 @@ interface POSState {
   wasteLog: WasteEntry[];
   suppliers: Supplier[];
   supplierOrders: SupplierOrder[];
+  customers: Customer[];
+  customerVisits: CustomerVisit[];
+  loyaltySettings: LoyaltySettings;
   isLoaded: boolean;
 }
 
@@ -131,7 +140,25 @@ type POSAction =
   // Supplier order actions
   | { type: "ADD_SUPPLIER_ORDER"; payload: SupplierOrder }
   | { type: "UPDATE_SUPPLIER_ORDER"; payload: SupplierOrder }
-  | { type: "RECEIVE_SUPPLIER_ORDER"; payload: string };
+  | { type: "RECEIVE_SUPPLIER_ORDER"; payload: string }
+  // Customer actions
+  | { type: "ADD_CUSTOMER"; payload: Customer }
+  | { type: "UPDATE_CUSTOMER"; payload: Customer }
+  | { type: "DELETE_CUSTOMER"; payload: string }
+  // Customer visit actions
+  | { type: "ADD_CUSTOMER_VISIT"; payload: CustomerVisit }
+  // Loyalty actions
+  | { type: "UPDATE_LOYALTY_SETTINGS"; payload: LoyaltySettings }
+  | {
+      type: "ADD_LOYALTY_POINTS";
+      payload: { customerId: string; points: number };
+    }
+  | {
+      type: "REDEEM_LOYALTY_POINTS";
+      payload: { customerId: string; points: number };
+    }
+  | { type: "ADD_STAMP"; payload: string }
+  | { type: "REDEEM_STAMPS"; payload: string };
 
 // Helper functions
 function calculateTotal(items: OrderItem[]): number {
@@ -637,6 +664,71 @@ function posReducer(state: POSState, action: POSAction): POSState {
       };
     }
 
+    // Customer actions
+    case "ADD_CUSTOMER":
+      return { ...state, customers: [...state.customers, action.payload] };
+
+    case "UPDATE_CUSTOMER":
+      return {
+        ...state,
+        customers: state.customers.map((c) =>
+          c.id === action.payload.id ? action.payload : c,
+        ),
+      };
+
+    case "DELETE_CUSTOMER":
+      return {
+        ...state,
+        customers: state.customers.filter((c) => c.id !== action.payload),
+      };
+
+    // Customer visit actions
+    case "ADD_CUSTOMER_VISIT":
+      return {
+        ...state,
+        customerVisits: [...state.customerVisits, action.payload],
+      };
+
+    // Loyalty actions
+    case "UPDATE_LOYALTY_SETTINGS":
+      return { ...state, loyaltySettings: action.payload };
+
+    case "ADD_LOYALTY_POINTS":
+      return {
+        ...state,
+        customers: state.customers.map((c) =>
+          c.id === action.payload.customerId
+            ? { ...c, loyaltyPoints: c.loyaltyPoints + action.payload.points }
+            : c,
+        ),
+      };
+
+    case "REDEEM_LOYALTY_POINTS":
+      return {
+        ...state,
+        customers: state.customers.map((c) =>
+          c.id === action.payload.customerId
+            ? { ...c, loyaltyPoints: c.loyaltyPoints - action.payload.points }
+            : c,
+        ),
+      };
+
+    case "ADD_STAMP":
+      return {
+        ...state,
+        customers: state.customers.map((c) =>
+          c.id === action.payload ? { ...c, stampCount: c.stampCount + 1 } : c,
+        ),
+      };
+
+    case "REDEEM_STAMPS":
+      return {
+        ...state,
+        customers: state.customers.map((c) =>
+          c.id === action.payload ? { ...c, stampCount: 0 } : c,
+        ),
+      };
+
     default:
       return state;
   }
@@ -655,6 +747,9 @@ const initialState: POSState = {
   wasteLog: initialWasteLog,
   suppliers: initialSuppliers,
   supplierOrders: initialSupplierOrders,
+  customers: initialCustomers,
+  customerVisits: initialCustomerVisits,
+  loyaltySettings: initialLoyaltySettings,
   isLoaded: false,
 };
 
@@ -687,7 +782,7 @@ const POSContext = createContext<POSContextType | undefined>(undefined);
 
 // Storage key
 const STORAGE_KEY = "eatflow-pos-state";
-const STORAGE_VERSION = 4; // Increment when schema changes
+const STORAGE_VERSION = 5; // Increment when schema changes
 
 // Provider
 export function POSProvider({ children }: { children: ReactNode }) {
@@ -731,6 +826,9 @@ export function POSProvider({ children }: { children: ReactNode }) {
           wasteLog: state.wasteLog,
           suppliers: state.suppliers,
           supplierOrders: state.supplierOrders,
+          customers: state.customers,
+          customerVisits: state.customerVisits,
+          loyaltySettings: state.loyaltySettings,
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
       } catch (e) {
