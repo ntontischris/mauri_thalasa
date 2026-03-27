@@ -128,6 +128,8 @@ export default function MenuPage() {
       description: productForm.description || undefined,
       vatRate: parseInt(productForm.vatRate) as 13 | 24,
       available: editingProduct?.available ?? true,
+      station: editingProduct?.station ?? "hot",
+      modifierIds: editingProduct?.modifierIds ?? [],
     };
 
     if (editingProduct) {

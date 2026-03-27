@@ -1,24 +1,24 @@
-'use client'
+"use client";
 
-import { Minus, Plus, X, MessageSquare } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
-import { formatPrice } from '@/lib/mock-data'
-import type { OrderItem } from '@/lib/types'
+import { Minus, Plus, X, MessageSquare } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { formatPrice } from "@/lib/mock-data";
+import type { OrderItem } from "@/lib/types";
 
 interface OrderItemCardProps {
-  item: OrderItem
-  onUpdateQuantity: (itemId: string, quantity: number) => void
-  onRemove: (itemId: string) => void
-  disabled?: boolean
+  item: OrderItem;
+  onUpdateQuantity: (itemId: string, quantity: number) => void;
+  onRemove: (itemId: string) => void;
+  disabled?: boolean;
 }
 
 const statusColors = {
-  pending: 'bg-muted',
-  preparing: 'bg-warning/20 border-warning/50',
-  ready: 'bg-primary/20 border-primary/50',
-  served: 'bg-muted opacity-50',
-}
+  pending: "bg-muted",
+  preparing: "bg-warning/20 border-warning/50",
+  ready: "bg-primary/20 border-primary/50",
+  served: "bg-muted opacity-50",
+};
 
 export function OrderItemCard({
   item,
@@ -26,23 +26,36 @@ export function OrderItemCard({
   onRemove,
   disabled = false,
 }: OrderItemCardProps) {
+  const modifierTotal = (item.modifiers || []).reduce(
+    (sum, m) => sum + m.price,
+    0,
+  );
+  const itemTotal = (item.price + modifierTotal) * item.quantity;
+
   return (
     <div
       className={cn(
-        'flex items-center gap-3 rounded-lg border p-3',
-        statusColors[item.status]
+        "flex items-center gap-3 rounded-lg border p-3",
+        statusColors[item.status],
       )}
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <p className="font-medium text-foreground truncate">{item.productName}</p>
+            <p className="font-medium text-foreground truncate">
+              {item.productName}
+            </p>
+            {item.modifiers && item.modifiers.length > 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                {item.modifiers.map((m) => m.name).join(", ")}
+              </p>
+            )}
             <p className="text-sm text-muted-foreground">
-              {formatPrice(item.price)} × {item.quantity}
+              {formatPrice(item.price + modifierTotal)} × {item.quantity}
             </p>
           </div>
           <p className="font-semibold text-foreground whitespace-nowrap">
-            {formatPrice(item.price * item.quantity)}
+            {formatPrice(itemTotal)}
           </p>
         </div>
         {item.notes && (
@@ -53,7 +66,7 @@ export function OrderItemCard({
         )}
       </div>
 
-      {item.status === 'pending' && !disabled && (
+      {item.status === "pending" && !disabled && (
         <div className="flex items-center gap-1">
           <Button
             variant="outline"
@@ -61,13 +74,17 @@ export function OrderItemCard({
             className="size-8"
             onClick={() => {
               if (item.quantity === 1) {
-                onRemove(item.id)
+                onRemove(item.id);
               } else {
-                onUpdateQuantity(item.id, item.quantity - 1)
+                onUpdateQuantity(item.id, item.quantity - 1);
               }
             }}
           >
-            {item.quantity === 1 ? <X className="size-4" /> : <Minus className="size-4" />}
+            {item.quantity === 1 ? (
+              <X className="size-4" />
+            ) : (
+              <Minus className="size-4" />
+            )}
           </Button>
           <span className="w-8 text-center font-medium">{item.quantity}</span>
           <Button
@@ -81,5 +98,5 @@ export function OrderItemCard({
         </div>
       )}
     </div>
-  )
+  );
 }
