@@ -1,43 +1,58 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { Save, RotateCcw, Building, Receipt, Printer } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { Separator } from '@/components/ui/separator'
-import { usePOS } from '@/lib/pos-context'
-import { initialTables, initialCategories, initialProducts } from '@/lib/mock-data'
+import { useState } from "react";
+import { Save, RotateCcw, Building, Receipt, Printer } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import { usePOS } from "@/lib/pos-context";
+import {
+  initialTables,
+  initialCategories,
+  initialProducts,
+} from "@/lib/mock-data";
+import { FloorPlanEditor } from "@/components/pos/floor-plan-editor";
 
 export default function SettingsPage() {
-  const { dispatch } = usePOS()
-  const [saved, setSaved] = useState(false)
-  
+  const { dispatch } = usePOS();
+  const [saved, setSaved] = useState(false);
+
   const [settings, setSettings] = useState({
-    restaurantName: 'EatFlow Restaurant',
-    address: 'Οδός Τεστ 123, Θεσσαλονίκη',
-    vatNumber: '123456789',
+    restaurantName: "EatFlow Restaurant",
+    address: "Οδός Τεστ 123, Θεσσαλονίκη",
+    vatNumber: "123456789",
     taxOffice: "Α' Θεσσαλονίκης",
     printReceipt: true,
     autoPrint: false,
     soundEnabled: true,
-  })
+  });
 
   const handleSave = () => {
     // In a real app, this would save to backend/localStorage
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
-  }
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
 
   const handleResetData = () => {
-    if (confirm('Είστε σίγουροι ότι θέλετε να επαναφέρετε όλα τα δεδομένα; Αυτή η ενέργεια δεν μπορεί να αναιρεθεί.')) {
+    if (
+      confirm(
+        "Είστε σίγουροι ότι θέλετε να επαναφέρετε όλα τα δεδομένα; Αυτή η ενέργεια δεν μπορεί να αναιρεθεί.",
+      )
+    ) {
       // Clear localStorage and reload
-      localStorage.removeItem('eatflow-pos-state')
-      window.location.reload()
+      localStorage.removeItem("eatflow-pos-state");
+      window.location.reload();
     }
-  }
+  };
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -47,6 +62,19 @@ export default function SettingsPage() {
           Διαχείριση ρυθμίσεων συστήματος
         </p>
       </div>
+
+      {/* Floor Plan */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Σχέδιο Χώρου</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Διαχειριστείτε τις ζώνες και τη διάταξη των τραπεζιών
+          </p>
+        </CardHeader>
+        <CardContent>
+          <FloorPlanEditor />
+        </CardContent>
+      </Card>
 
       {/* Business Info */}
       <Card>
@@ -112,9 +140,7 @@ export default function SettingsPage() {
             <Receipt className="size-5" />
             Αποδείξεις
           </CardTitle>
-          <CardDescription>
-            Ρυθμίσεις εκτύπωσης και ΑΑΔΕ
-          </CardDescription>
+          <CardDescription>Ρυθμίσεις εκτύπωσης και ΑΑΔΕ</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
@@ -151,9 +177,7 @@ export default function SettingsPage() {
             <Printer className="size-5" />
             Εκτυπωτές
           </CardTitle>
-          <CardDescription>
-            Διαχείριση συνδεδεμένων εκτυπωτών
-          </CardDescription>
+          <CardDescription>Διαχείριση συνδεδεμένων εκτυπωτών</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="rounded-lg border border-dashed border-border p-6 text-center">
@@ -199,7 +223,7 @@ export default function SettingsPage() {
         </Button>
         <Button onClick={handleSave}>
           <Save className="size-4 mr-2" />
-          {saved ? 'Αποθηκεύτηκε!' : 'Αποθήκευση'}
+          {saved ? "Αποθηκεύτηκε!" : "Αποθήκευση"}
         </Button>
       </div>
 
@@ -209,5 +233,5 @@ export default function SettingsPage() {
         <p className="mt-1">Cloud POS & Restaurant Management System</p>
       </div>
     </div>
-  )
+  );
 }
