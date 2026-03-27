@@ -34,7 +34,49 @@ interface RecipeEditorProps {
 
 type DraftIngredient = RecipeIngredient & { _key: number };
 
-const UNITS: IngredientUnit[] = ["kg", "lt", "pcs", "gr", "ml"];
+// Compatible units based on ingredient's base unit
+function getCompatibleUnits(
+  ingredientId: string,
+  allIngredients: { id: string; unit: IngredientUnit }[],
+): IngredientUnit[] {
+  const ingredient = allIngredients.find((i) => i.id === ingredientId);
+  if (!ingredient) return ["kg", "gr"]; // default
+  switch (ingredient.unit) {
+    case "kg":
+    case "gr":
+      return ["kg", "gr"];
+    case "lt":
+    case "ml":
+      return ["lt", "ml"];
+    case "pcs":
+      return ["pcs"];
+    default:
+      return [ingredient.unit];
+  }
+}
+
+// Smart default unit: use smaller unit (gr/ml) for recipe quantities
+function getDefaultUnit(
+  ingredientId: string,
+  allIngredients: { id: string; unit: IngredientUnit }[],
+): IngredientUnit {
+  const ingredient = allIngredients.find((i) => i.id === ingredientId);
+  if (!ingredient) return "gr";
+  switch (ingredient.unit) {
+    case "kg":
+      return "kg";
+    case "gr":
+      return "gr";
+    case "lt":
+      return "lt";
+    case "ml":
+      return "ml";
+    case "pcs":
+      return "pcs";
+    default:
+      return ingredient.unit;
+  }
+}
 
 let keyCounter = 0;
 const nextKey = () => ++keyCounter;
@@ -241,9 +283,13 @@ export function RecipeEditor({
                   <div key={di._key} className="flex items-center gap-2">
                     <Select
                       value={di.ingredientId}
-                      onValueChange={(v) =>
-                        updateIngredientRow(di._key, { ingredientId: v })
-                      }
+                      onValueChange={(v) => {
+                        const newUnit = getDefaultUnit(v, ingredients);
+                        updateIngredientRow(di._key, {
+                          ingredientId: v,
+                          unit: newUnit,
+                        });
+                      }}
                     >
                       <SelectTrigger className="flex-1">
                         <SelectValue placeholder="Συστατικό..." />
@@ -271,25 +317,37 @@ export function RecipeEditor({
                       placeholder="Ποσ."
                     />
 
-                    <Select
-                      value={di.unit}
-                      onValueChange={(v) =>
-                        updateIngredientRow(di._key, {
-                          unit: v as IngredientUnit,
-                        })
-                      }
-                    >
-                      <SelectTrigger className="w-20">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {UNITS.map((u) => (
-                          <SelectItem key={u} value={u}>
-                            {u}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {(() => {
+                      const compatibleUnits = getCompatibleUnits(
+                        di.ingredientId,
+                        ingredients,
+                      );
+                      return compatibleUnits.length <= 1 ? (
+                        <span className="w-20 text-center text-sm text-muted-foreground py-2">
+                          {compatibleUnits[0] || di.unit}
+                        </span>
+                      ) : (
+                        <Select
+                          value={di.unit}
+                          onValueChange={(v) =>
+                            updateIngredientRow(di._key, {
+                              unit: v as IngredientUnit,
+                            })
+                          }
+                        >
+                          <SelectTrigger className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {compatibleUnits.map((u) => (
+                              <SelectItem key={u} value={u}>
+                                {u}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      );
+                    })()}
 
                     <span className="w-16 text-right text-xs text-muted-foreground">
                       {rowCost > 0 ? formatPrice(rowCost) : "—"}
