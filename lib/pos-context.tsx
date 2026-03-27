@@ -459,7 +459,7 @@ const POSContext = createContext<POSContextType | undefined>(undefined);
 
 // Storage key
 const STORAGE_KEY = "eatflow-pos-state";
-const STORAGE_VERSION = 2; // Increment when schema changes
+const STORAGE_VERSION = 3; // Increment when schema changes
 
 // Provider
 export function POSProvider({ children }: { children: ReactNode }) {
