@@ -98,6 +98,79 @@ export interface DailySummary {
   hourlyRevenue: { hour: number; revenue: number }[];
 }
 
+// === Inventory Types ===
+
+export type IngredientCategory =
+  | "seafood"
+  | "meat"
+  | "dairy"
+  | "vegetables"
+  | "dry"
+  | "drinks"
+  | "other";
+export type IngredientUnit = "kg" | "lt" | "pcs" | "gr" | "ml";
+
+export interface Ingredient {
+  id: string;
+  name: string;
+  unit: IngredientUnit;
+  currentStock: number;
+  minStock: number;
+  costPerUnit: number;
+  supplierId?: string;
+  category: IngredientCategory;
+}
+
+export interface RecipeIngredient {
+  ingredientId: string;
+  quantity: number;
+  unit: IngredientUnit;
+}
+
+export interface Recipe {
+  id: string;
+  productId: string;
+  ingredients: RecipeIngredient[];
+  prepTime: number;
+  portionSize: string;
+}
+
+export type WasteReason = "expired" | "damaged" | "overproduction" | "returned";
+
+export interface WasteEntry {
+  id: string;
+  ingredientId: string;
+  quantity: number;
+  reason: WasteReason;
+  date: string;
+  notes?: string;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  categories: IngredientCategory[];
+}
+
+export interface SupplierOrderItem {
+  ingredientId: string;
+  quantity: number;
+  estimatedCost: number;
+}
+
+export type SupplierOrderStatus = "draft" | "sent" | "received";
+
+export interface SupplierOrder {
+  id: string;
+  supplierId: string;
+  items: SupplierOrderItem[];
+  status: SupplierOrderStatus;
+  createdAt: string;
+  notes?: string;
+}
+
 // Helper types
 export type TableStatus = Table["status"];
 export type OrderStatus = Order["status"];

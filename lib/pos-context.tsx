@@ -16,6 +16,11 @@ import type {
   Zone,
   Modifier,
   SelectedModifier,
+  Ingredient,
+  Recipe,
+  WasteEntry,
+  Supplier,
+  SupplierOrder,
 } from "./types";
 import {
   initialTables,
@@ -24,6 +29,11 @@ import {
   initialOrders,
   initialZones,
   initialModifiers,
+  initialIngredients,
+  initialRecipes,
+  initialWasteLog,
+  initialSuppliers,
+  initialSupplierOrders,
   generateId,
 } from "./mock-data";
 
@@ -35,6 +45,11 @@ interface POSState {
   orders: Order[];
   zones: Zone[];
   modifiers: Modifier[];
+  ingredients: Ingredient[];
+  recipes: Recipe[];
+  wasteLog: WasteEntry[];
+  suppliers: Supplier[];
+  supplierOrders: SupplierOrder[];
   isLoaded: boolean;
 }
 
@@ -94,7 +109,29 @@ type POSAction =
     }
   | { type: "CANCEL_ORDER"; payload: string }
   | { type: "TOGGLE_RUSH"; payload: string }
-  | { type: "ADVANCE_COURSE"; payload: string };
+  | { type: "ADVANCE_COURSE"; payload: string }
+  // Ingredient actions
+  | { type: "ADD_INGREDIENT"; payload: Ingredient }
+  | { type: "UPDATE_INGREDIENT"; payload: Ingredient }
+  | { type: "DELETE_INGREDIENT"; payload: string }
+  | {
+      type: "ADJUST_STOCK";
+      payload: { ingredientId: string; quantity: number };
+    }
+  // Recipe actions
+  | { type: "ADD_RECIPE"; payload: Recipe }
+  | { type: "UPDATE_RECIPE"; payload: Recipe }
+  | { type: "DELETE_RECIPE"; payload: string }
+  // Waste actions
+  | { type: "ADD_WASTE_ENTRY"; payload: WasteEntry }
+  // Supplier actions
+  | { type: "ADD_SUPPLIER"; payload: Supplier }
+  | { type: "UPDATE_SUPPLIER"; payload: Supplier }
+  | { type: "DELETE_SUPPLIER"; payload: string }
+  // Supplier order actions
+  | { type: "ADD_SUPPLIER_ORDER"; payload: SupplierOrder }
+  | { type: "UPDATE_SUPPLIER_ORDER"; payload: SupplierOrder }
+  | { type: "RECEIVE_SUPPLIER_ORDER"; payload: string };
 
 // Helper functions
 function calculateTotal(items: OrderItem[]): number {
@@ -118,6 +155,56 @@ function calculateVAT(items: OrderItem[], products: Product[]): number {
     const itemTotal = (item.price + modifiersTotal) * item.quantity;
     return sum + (itemTotal * vatRate) / (100 + vatRate);
   }, 0);
+}
+
+function deductStockForOrder(
+  ingredients: Ingredient[],
+  recipes: Recipe[],
+  order: Order,
+): Ingredient[] {
+  const updatedIngredients = ingredients.map((ing) => ({ ...ing }));
+
+  for (const item of order.items) {
+    const recipe = recipes.find((r) => r.productId === item.productId);
+    if (!recipe) continue;
+
+    for (const recipeIng of recipe.ingredients) {
+      const ingredient = updatedIngredients.find(
+        (ing) => ing.id === recipeIng.ingredientId,
+      );
+      if (!ingredient) continue;
+
+      ingredient.currentStock = Math.max(
+        0,
+        ingredient.currentStock - recipeIng.quantity * item.quantity,
+      );
+    }
+  }
+
+  return updatedIngredients;
+}
+
+function autoDisableProducts(
+  products: Product[],
+  ingredients: Ingredient[],
+  recipes: Recipe[],
+): Product[] {
+  return products.map((product) => {
+    const recipe = recipes.find((r) => r.productId === product.id);
+    if (!recipe) return product;
+
+    const hasLowStock = recipe.ingredients.some((recipeIng) => {
+      const ingredient = ingredients.find(
+        (ing) => ing.id === recipeIng.ingredientId,
+      );
+      return ingredient ? ingredient.currentStock < ingredient.minStock : false;
+    });
+
+    if (hasLowStock && product.available) {
+      return { ...product, available: false };
+    }
+    return product;
+  });
 }
 
 // Reducer
@@ -359,6 +446,20 @@ function posReducer(state: POSState, action: POSAction): POSState {
       const order = state.orders.find((o) => o.id === action.payload.orderId);
       if (!order) return state;
 
+      // Deduct stock from ingredients based on recipes
+      const updatedIngredients = deductStockForOrder(
+        state.ingredients,
+        state.recipes,
+        order,
+      );
+
+      // Auto-disable products when ingredients are below minStock
+      const updatedProducts = autoDisableProducts(
+        state.products,
+        updatedIngredients,
+        state.recipes,
+      );
+
       return {
         ...state,
         orders: state.orders.map((o) =>
@@ -376,6 +477,8 @@ function posReducer(state: POSState, action: POSAction): POSState {
             ? { ...t, status: "available" as const, currentOrderId: undefined }
             : t,
         ),
+        ingredients: updatedIngredients,
+        products: updatedProducts,
       };
     }
 
@@ -414,6 +517,126 @@ function posReducer(state: POSState, action: POSAction): POSState {
         ),
       };
 
+    // Ingredient actions
+    case "ADD_INGREDIENT":
+      return { ...state, ingredients: [...state.ingredients, action.payload] };
+
+    case "UPDATE_INGREDIENT":
+      return {
+        ...state,
+        ingredients: state.ingredients.map((ing) =>
+          ing.id === action.payload.id ? action.payload : ing,
+        ),
+      };
+
+    case "DELETE_INGREDIENT":
+      return {
+        ...state,
+        ingredients: state.ingredients.filter(
+          (ing) => ing.id !== action.payload,
+        ),
+      };
+
+    case "ADJUST_STOCK":
+      return {
+        ...state,
+        ingredients: state.ingredients.map((ing) =>
+          ing.id === action.payload.ingredientId
+            ? {
+                ...ing,
+                currentStock: Math.max(
+                  0,
+                  ing.currentStock + action.payload.quantity,
+                ),
+              }
+            : ing,
+        ),
+      };
+
+    // Recipe actions
+    case "ADD_RECIPE":
+      return { ...state, recipes: [...state.recipes, action.payload] };
+
+    case "UPDATE_RECIPE":
+      return {
+        ...state,
+        recipes: state.recipes.map((r) =>
+          r.id === action.payload.id ? action.payload : r,
+        ),
+      };
+
+    case "DELETE_RECIPE":
+      return {
+        ...state,
+        recipes: state.recipes.filter((r) => r.id !== action.payload),
+      };
+
+    // Waste actions
+    case "ADD_WASTE_ENTRY":
+      return { ...state, wasteLog: [...state.wasteLog, action.payload] };
+
+    // Supplier actions
+    case "ADD_SUPPLIER":
+      return { ...state, suppliers: [...state.suppliers, action.payload] };
+
+    case "UPDATE_SUPPLIER":
+      return {
+        ...state,
+        suppliers: state.suppliers.map((s) =>
+          s.id === action.payload.id ? action.payload : s,
+        ),
+      };
+
+    case "DELETE_SUPPLIER":
+      return {
+        ...state,
+        suppliers: state.suppliers.filter((s) => s.id !== action.payload),
+      };
+
+    // Supplier order actions
+    case "ADD_SUPPLIER_ORDER":
+      return {
+        ...state,
+        supplierOrders: [...state.supplierOrders, action.payload],
+      };
+
+    case "UPDATE_SUPPLIER_ORDER":
+      return {
+        ...state,
+        supplierOrders: state.supplierOrders.map((so) =>
+          so.id === action.payload.id ? action.payload : so,
+        ),
+      };
+
+    case "RECEIVE_SUPPLIER_ORDER": {
+      const supplierOrder = state.supplierOrders.find(
+        (so) => so.id === action.payload,
+      );
+      if (!supplierOrder) return state;
+
+      // Mark order as received and add stock for each item
+      const updatedIngredients = state.ingredients.map((ing) => {
+        const orderItem = supplierOrder.items.find(
+          (item) => item.ingredientId === ing.id,
+        );
+        if (!orderItem) return ing;
+        return {
+          ...ing,
+          currentStock: ing.currentStock + orderItem.quantity,
+        };
+      });
+
+      return {
+        ...state,
+        supplierOrders: state.supplierOrders.map((so) =>
+          so.id === action.payload
+            ? { ...so, status: "received" as const }
+            : so,
+        ),
+        ingredients: updatedIngredients,
+      };
+    }
+
     default:
       return state;
   }
@@ -427,6 +650,11 @@ const initialState: POSState = {
   orders: initialOrders,
   zones: initialZones,
   modifiers: initialModifiers,
+  ingredients: initialIngredients,
+  recipes: initialRecipes,
+  wasteLog: initialWasteLog,
+  suppliers: initialSuppliers,
+  supplierOrders: initialSupplierOrders,
   isLoaded: false,
 };
 
@@ -459,7 +687,7 @@ const POSContext = createContext<POSContextType | undefined>(undefined);
 
 // Storage key
 const STORAGE_KEY = "eatflow-pos-state";
-const STORAGE_VERSION = 3; // Increment when schema changes
+const STORAGE_VERSION = 4; // Increment when schema changes
 
 // Provider
 export function POSProvider({ children }: { children: ReactNode }) {
@@ -471,15 +699,12 @@ export function POSProvider({ children }: { children: ReactNode }) {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        // Check if data has the new schema (tables with zoneId field)
-        const isValidSchema =
-          parsed._version === STORAGE_VERSION ||
-          (parsed.tables?.[0]?.zoneId !== undefined &&
-            parsed.zones !== undefined);
+        // Check if data has the new schema
+        const isValidSchema = parsed._version === STORAGE_VERSION;
         if (isValidSchema) {
           dispatch({ type: "LOAD_STATE", payload: parsed });
         } else {
-          // Old schema — clear and use fresh initial data
+          // Old schema -- clear and use fresh initial data
           localStorage.removeItem(STORAGE_KEY);
         }
       }
@@ -501,6 +726,11 @@ export function POSProvider({ children }: { children: ReactNode }) {
           orders: state.orders,
           zones: state.zones,
           modifiers: state.modifiers,
+          ingredients: state.ingredients,
+          recipes: state.recipes,
+          wasteLog: state.wasteLog,
+          suppliers: state.suppliers,
+          supplierOrders: state.supplierOrders,
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
       } catch (e) {
