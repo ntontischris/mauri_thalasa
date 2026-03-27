@@ -14,6 +14,7 @@ import {
   BookOpen,
   Users,
   Gift,
+  UserCog,
 } from "lucide-react";
 import { StockAlertBadge } from "@/components/pos/stock-alert-badge";
 import {
@@ -73,6 +74,11 @@ const navItems = [
     title: "Loyalty",
     href: "/loyalty",
     icon: Gift,
+  },
+  {
+    title: "Προσωπικό",
+    href: "/staff",
+    icon: UserCog,
   },
   {
     title: "Αναφορές",

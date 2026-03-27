@@ -1,40 +1,45 @@
-'use client'
+"use client";
 
-import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar'
-import { POSSidebar } from '@/components/pos/sidebar'
-import { POSProvider } from '@/lib/pos-context'
-import { Separator } from '@/components/ui/separator'
-import { Clock } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import {
+  SidebarProvider,
+  SidebarInset,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { POSSidebar } from "@/components/pos/sidebar";
+import { POSProvider } from "@/lib/pos-context";
+import { Separator } from "@/components/ui/separator";
+import { StaffHeader } from "@/components/pos/staff-header";
+import { Clock } from "lucide-react";
+import { useEffect, useState } from "react";
 
 function CurrentTime() {
-  const [time, setTime] = useState<string>('')
-  const [date, setDate] = useState<string>('')
+  const [time, setTime] = useState<string>("");
+  const [date, setDate] = useState<string>("");
 
   useEffect(() => {
     const updateTime = () => {
-      const now = new Date()
+      const now = new Date();
       setTime(
-        now.toLocaleTimeString('el-GR', {
-          hour: '2-digit',
-          minute: '2-digit',
-        })
-      )
+        now.toLocaleTimeString("el-GR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      );
       setDate(
-        now.toLocaleDateString('el-GR', {
-          weekday: 'short',
-          day: 'numeric',
-          month: 'short',
-        })
-      )
-    }
-    
-    updateTime()
-    const interval = setInterval(updateTime, 1000)
-    return () => clearInterval(interval)
-  }, [])
+        now.toLocaleDateString("el-GR", {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+        }),
+      );
+    };
 
-  if (!time) return null
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (!time) return null;
 
   return (
     <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -43,14 +48,10 @@ function CurrentTime() {
       <span className="hidden sm:inline">•</span>
       <span className="hidden sm:inline">{date}</span>
     </div>
-  )
+  );
 }
 
-export default function POSLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function POSLayout({ children }: { children: React.ReactNode }) {
   return (
     <POSProvider>
       <SidebarProvider defaultOpen={true}>
@@ -61,13 +62,15 @@ export default function POSLayout({
               <SidebarTrigger className="-ml-1" />
               <Separator orientation="vertical" className="h-6" />
             </div>
-            <CurrentTime />
+            <div className="flex items-center gap-3">
+              <CurrentTime />
+              <Separator orientation="vertical" className="h-6" />
+              <StaffHeader />
+            </div>
           </header>
-          <main className="flex-1 overflow-auto p-4 md:p-6">
-            {children}
-          </main>
+          <main className="flex-1 overflow-auto p-4 md:p-6">{children}</main>
         </SidebarInset>
       </SidebarProvider>
     </POSProvider>
-  )
+  );
 }
