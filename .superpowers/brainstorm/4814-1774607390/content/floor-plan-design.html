@@ -1,0 +1,83 @@
+<h2>Floor Plan Editor — Design</h2>
+<p class="subtitle">Πώς θα λειτουργεί ο drag & drop editor + η live view</p>
+
+<div class="section">
+  <h3>2 Modes: Edit & Live</h3>
+  <div class="split">
+    <div class="mockup">
+      <div class="mockup-header">Edit Mode (Settings → Floor Plan)</div>
+      <div class="mockup-body" style="padding: 1rem;">
+        <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem; flex-wrap:wrap;">
+          <span style="background:#3b82f6;color:white;padding:0.25rem 0.75rem;border-radius:999px;font-size:0.8rem;">Εσωτερικό</span>
+          <span style="background:#22c55e;color:white;padding:0.25rem 0.75rem;border-radius:999px;font-size:0.8rem;">Βεράντα</span>
+          <span style="background:#f59e0b;color:white;padding:0.25rem 0.75rem;border-radius:999px;font-size:0.8rem;">Μπαρ</span>
+          <span style="background:var(--border);padding:0.25rem 0.75rem;border-radius:999px;font-size:0.8rem;cursor:pointer;">+ Ζώνη</span>
+        </div>
+        <div style="border:2px dashed var(--border);border-radius:8px;min-height:250px;position:relative;background:var(--bg-secondary);">
+          <div style="position:absolute;top:15%;left:10%;width:45px;height:45px;background:#3b82f6;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:0.75rem;cursor:grab;box-shadow:0 2px 8px rgba(0,0,0,0.2);">T1</div>
+          <div style="position:absolute;top:15%;left:30%;width:50px;height:40px;background:#3b82f6;border-radius:6px;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:0.75rem;cursor:grab;box-shadow:0 2px 8px rgba(0,0,0,0.2);">T2</div>
+          <div style="position:absolute;top:45%;left:15%;width:45px;height:45px;background:#3b82f6;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:0.75rem;cursor:grab;box-shadow:0 2px 8px rgba(0,0,0,0.2);">T3</div>
+          <div style="position:absolute;top:60%;left:65%;width:55px;height:40px;background:#22c55e;border-radius:6px;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:0.75rem;cursor:grab;box-shadow:0 2px 8px rgba(0,0,0,0.2);">T7</div>
+          <div style="position:absolute;top:25%;left:70%;width:45px;height:45px;background:#22c55e;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:0.75rem;cursor:grab;box-shadow:0 2px 8px rgba(0,0,0,0.2);">T8</div>
+          <div style="position:absolute;top:75%;left:25%;width:70px;height:30px;background:#f59e0b;border-radius:6px;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:0.7rem;cursor:grab;box-shadow:0 2px 8px rgba(0,0,0,0.2);">Bar 1</div>
+          <p style="position:absolute;bottom:5px;right:10px;font-size:0.65rem;color:var(--text-secondary);margin:0;">Drag τραπέζια για τοποθέτηση</p>
+        </div>
+        <div style="display:flex;gap:0.5rem;margin-top:0.75rem;align-items:center;">
+          <button class="mock-button" style="font-size:0.75rem;">+ Τραπέζι</button>
+          <span style="font-size:0.75rem;color:var(--text-secondary);">Shape:</span>
+          <span style="width:24px;height:24px;border:2px solid var(--text-secondary);border-radius:50%;display:inline-block;cursor:pointer;"></span>
+          <span style="width:24px;height:24px;border:2px solid var(--primary);border-radius:4px;display:inline-block;cursor:pointer;"></span>
+          <span style="width:34px;height:20px;border:2px solid var(--text-secondary);border-radius:4px;display:inline-block;cursor:pointer;"></span>
+        </div>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">Live Mode (Tables page — σερβιτόρος)</div>
+      <div class="mockup-body" style="padding: 1rem;">
+        <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem; flex-wrap:wrap;">
+          <span style="background:#3b82f6;color:white;padding:0.25rem 0.75rem;border-radius:999px;font-size:0.8rem;">Εσωτερικό</span>
+          <span style="background:#22c55e;color:white;padding:0.25rem 0.75rem;border-radius:999px;font-size:0.8rem;">Βεράντα</span>
+          <span style="background:#f59e0b;color:white;padding:0.25rem 0.75rem;border-radius:999px;font-size:0.8rem;">Μπαρ</span>
+          <span style="background:var(--border);padding:0.25rem 0.75rem;border-radius:999px;font-size:0.8rem;">Όλα</span>
+        </div>
+        <div style="border:1px solid var(--border);border-radius:8px;min-height:250px;position:relative;background:var(--bg-secondary);">
+          <div style="position:absolute;top:15%;left:10%;width:50px;height:50px;background:#22c55e;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:0.7rem;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);flex-direction:column;line-height:1.1;">
+            <span>T1</span><span style="font-size:0.6rem;opacity:0.8;">free</span>
+          </div>
+          <div style="position:absolute;top:15%;left:30%;width:55px;height:45px;background:#ef4444;border-radius:6px;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:0.7rem;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);flex-direction:column;line-height:1.1;">
+            <span>T2</span><span style="font-size:0.6rem;opacity:0.8;">€47.50</span>
+          </div>
+          <div style="position:absolute;top:45%;left:15%;width:50px;height:50px;background:#f59e0b;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:0.7rem;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);flex-direction:column;line-height:1.1;animation:pulse 2s infinite;">
+            <span>T3</span><span style="font-size:0.6rem;opacity:0.8;">BILL</span>
+          </div>
+          <div style="position:absolute;top:60%;left:65%;width:55px;height:45px;background:#22c55e;border-radius:6px;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:0.7rem;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);flex-direction:column;line-height:1.1;">
+            <span>T7</span><span style="font-size:0.6rem;opacity:0.8;">free</span>
+          </div>
+          <div style="position:absolute;top:25%;left:70%;width:50px;height:50px;background:#ef4444;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:0.7rem;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);flex-direction:column;line-height:1.1;">
+            <span>T8</span><span style="font-size:0.6rem;opacity:0.8;">€23.00</span>
+          </div>
+          <div style="position:absolute;top:75%;left:25%;width:75px;height:35px;background:#ef4444;border-radius:6px;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:0.65rem;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);flex-direction:column;line-height:1.1;">
+            <span>Bar 1</span><span style="font-size:0.55rem;opacity:0.8;">€15.00</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:1rem;margin-top:0.5rem;justify-content:center;">
+          <span style="display:flex;align-items:center;gap:0.25rem;font-size:0.7rem;"><span style="width:10px;height:10px;background:#22c55e;border-radius:50%;display:inline-block;"></span> Ελεύθερο</span>
+          <span style="display:flex;align-items:center;gap:0.25rem;font-size:0.7rem;"><span style="width:10px;height:10px;background:#ef4444;border-radius:50%;display:inline-block;"></span> Κατειλημμένο</span>
+          <span style="display:flex;align-items:center;gap:0.25rem;font-size:0.7rem;"><span style="width:10px;height:10px;background:#f59e0b;border-radius:50%;display:inline-block;"></span> Λογαριασμός</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:1.5rem;">
+  <h3>Τεχνικά</h3>
+  <ul style="font-size:0.9rem; line-height:1.8;">
+    <li><strong>Library:</strong> <code>@dnd-kit/core</code> + <code>@dnd-kit/utilities</code></li>
+    <li><strong>Edit Mode:</strong> Νέα σελίδα στο Settings ή standalone <code>/floor-plan</code></li>
+    <li><strong>Live Mode:</strong> Αντικαθιστά το τρέχον grid στο <code>/tables</code></li>
+    <li><strong>Positions:</strong> x/y σε % (0-100) — responsive σε κάθε οθόνη</li>
+    <li><strong>Zones:</strong> Filter tabs πάνω, χρώμα στα τραπέζια αντιστοιχεί στη ζώνη</li>
+    <li><strong>Click τραπέζι:</strong> Ίδια συμπεριφορά με τώρα (πάει στην παραγγελία)</li>
+  </ul>
+</div>

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \":*)",
+      "Bash(python -c \":*)",
+      "Bash(pip install:*)",
+      "Bash(bash \"C:/Users/ntont/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.6/skills/brainstorming/scripts/start-server.sh\" --project-dir \"C:/Users/ntont/Desktop/mauri_thalasa\")",
+      "Bash(bash \"C:\\\\Users\\\\ntont\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\5.0.6\\\\skills\\\\brainstorming\\\\scripts\\\\start-server.sh\" --project-dir \"C:\\\\Users\\\\ntont\\\\Desktop\\\\mauri_thalasa\")",
+      "Bash(ls \"C:\\\\Users\\\\ntont\\\\Desktop\\\\mauri_thalasa\\\\.superpowers\\\\brainstorm\"\" 2>/dev/null && cat \"C:UsersntontDesktopmauri_thalasa.superpowersbrainstorm\"\"/*/state/server-info)"
+    ]
+  }
+}

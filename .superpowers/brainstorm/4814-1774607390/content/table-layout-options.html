@@ -1,0 +1,44 @@
+<h2>Table Layout: Ποια προσέγγιση για το demo;</h2>
+<p class="subtitle">Τώρα έχεις απλό grid 12 τραπεζιών. Το proposal λέει custom layout με ζώνες (εσωτερικό, βεράντα, μπαρ, VIP).</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Drag & Drop Floor Plan Editor</h3>
+      <p>Ο ιδιοκτήτης σύρει τραπέζια σε canvas, τα τοποθετεί ελεύθερα, φτιάχνει ζώνες. Πλήρως interactive.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Εντυπωσιακό — "wow" effect στο demo</li><li>Πραγματικά customizable</li><li>Δείχνει ότι είναι premium product</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Πολύ complex για UI-only demo</li><li>Θέλει drag library (dnd-kit ή similar)</li><li>Πολλές edge cases</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Tabs με Ζώνες + Smart Grid</h3>
+      <p>Tabs πάνω: "Εσωτερικό | Βεράντα | Μπαρ | VIP". Κάθε tab δείχνει grid τραπεζιών της ζώνης. Ο ιδιοκτήτης προσθέτει/αφαιρεί ζώνες και τραπέζια.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Καθαρό, εύκολο στη χρήση</li><li>Γρήγορο να χτιστεί</li><li>Mobile-friendly</li><li>Δείχνει ζώνες ξεκάθαρα</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Λιγότερο εντυπωσιακό από floor plan</li><li>Δεν δείχνει spatial layout</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Pre-designed Floor Plan (Visual Map)</h3>
+      <p>Ένα όμορφο, pre-built layout που μοιάζει με κάτοψη εστιατορίου. Τα τραπέζια είναι τοποθετημένα σε ζώνες visually. Ο χρήστης δεν τα σύρει, αλλά φαίνεται σαν real floor plan. Στο settings μπορεί να προσθέσει/αφαιρέσει τραπέζια.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Πολύ visual — φαίνεται premium</li><li>Μεσαία πολυπλοκότητα</li><li>Perfect για demo — εντυπωσιάζει χωρίς complexity</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Δεν είναι fully customizable (ακόμα)</li><li>Ο layout είναι fixed per zone</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top: 1.5rem; color: var(--text-secondary); font-style: italic;">
+  <strong>Σύστασή μου:</strong> Option B — Tabs + Smart Grid. Γρήγορο, καθαρό, mobile-friendly, και εύκολο να γίνει upgrade σε drag & drop μετά. Για demo δείχνει ακριβώς ό,τι χρειάζεται.
+</p>
