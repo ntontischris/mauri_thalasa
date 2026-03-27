@@ -244,6 +244,36 @@ export interface StaffPerformance {
   tips: number;
 }
 
+// === AI Types ===
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: string;
+}
+
+export interface DemandForecast {
+  productId: string;
+  productName: string;
+  predictedQuantity: number;
+  confidence: "high" | "medium" | "low";
+  basedOn: string;
+}
+
+export interface MenuSuggestion {
+  type: "promote" | "reprice" | "remove" | "keep";
+  productId: string;
+  productName: string;
+  reason: string;
+  action: string;
+  impact?: string;
+}
+
+export interface AISettings {
+  openaiKey: string;
+  enabled: boolean;
+}
+
 // Helper types
 export type TableStatus = Table["status"];
 export type OrderStatus = Order["status"];

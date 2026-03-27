@@ -28,6 +28,8 @@ import type {
   Shift,
   ChecklistItem,
   ChecklistType,
+  AISettings,
+  ChatMessage,
 } from "./types";
 import {
   initialTables,
@@ -70,6 +72,8 @@ interface POSState {
   shifts: Shift[];
   checklist: ChecklistItem[];
   activeStaffId: string | null;
+  aiSettings: AISettings;
+  chatHistory: ChatMessage[];
   isLoaded: boolean;
 }
 
@@ -181,7 +185,11 @@ type POSAction =
   | { type: "CLOCK_OUT"; payload: { staffId: string; time: string } }
   // Checklist actions
   | { type: "TOGGLE_CHECKLIST"; payload: string }
-  | { type: "RESET_CHECKLIST"; payload: ChecklistType };
+  | { type: "RESET_CHECKLIST"; payload: ChecklistType }
+  // AI actions
+  | { type: "UPDATE_AI_SETTINGS"; payload: AISettings }
+  | { type: "ADD_CHAT_MESSAGE"; payload: ChatMessage }
+  | { type: "CLEAR_CHAT_HISTORY" };
 
 // Helper functions
 function calculateTotal(items: OrderItem[]): number {
@@ -840,6 +848,16 @@ function posReducer(state: POSState, action: POSAction): POSState {
         ),
       };
 
+    // AI actions
+    case "UPDATE_AI_SETTINGS":
+      return { ...state, aiSettings: action.payload };
+
+    case "ADD_CHAT_MESSAGE":
+      return { ...state, chatHistory: [...state.chatHistory, action.payload] };
+
+    case "CLEAR_CHAT_HISTORY":
+      return { ...state, chatHistory: [] };
+
     default:
       return state;
   }
@@ -865,6 +883,8 @@ const initialState: POSState = {
   shifts: initialShifts,
   checklist: initialChecklist,
   activeStaffId: null,
+  aiSettings: { openaiKey: "", enabled: false },
+  chatHistory: [],
   isLoaded: false,
 };
 
@@ -897,7 +917,7 @@ const POSContext = createContext<POSContextType | undefined>(undefined);
 
 // Storage key
 const STORAGE_KEY = "eatflow-pos-state";
-const STORAGE_VERSION = 6; // Increment when schema changes
+const STORAGE_VERSION = 7; // Increment when schema changes
 
 // Provider
 export function POSProvider({ children }: { children: ReactNode }) {
@@ -948,6 +968,8 @@ export function POSProvider({ children }: { children: ReactNode }) {
           shifts: state.shifts,
           checklist: state.checklist,
           activeStaffId: state.activeStaffId,
+          aiSettings: state.aiSettings,
+          chatHistory: state.chatHistory,
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
       } catch (e) {
