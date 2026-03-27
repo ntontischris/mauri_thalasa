@@ -12,6 +12,8 @@ import {
   Settings,
   Package,
   BookOpen,
+  Users,
+  Gift,
 } from "lucide-react";
 import { StockAlertBadge } from "@/components/pos/stock-alert-badge";
 import {
@@ -61,6 +63,16 @@ const navItems = [
     title: "Συνταγές",
     href: "/recipes",
     icon: BookOpen,
+  },
+  {
+    title: "Πελάτες",
+    href: "/customers",
+    icon: Users,
+  },
+  {
+    title: "Loyalty",
+    href: "/loyalty",
+    icon: Gift,
   },
   {
     title: "Αναφορές",
