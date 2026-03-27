@@ -1,22 +1,48 @@
-'use client'
+"use client";
 
-import { useParams, useRouter } from 'next/navigation'
-import { useState, use } from 'react'
-import { ArrowLeft, Send, Receipt, Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Skeleton } from '@/components/ui/skeleton'
-import { usePOS } from '@/lib/pos-context'
-import { formatPrice } from '@/lib/mock-data'
-import { MenuItemCard } from '@/components/pos/menu-item'
-import { OrderItemCard } from '@/components/pos/order-item'
-import type { Product, OrderItem } from '@/lib/types'
-import { cn } from '@/lib/utils'
+import { useRouter } from "next/navigation";
+import { useState, use, useMemo } from "react";
+import {
+  ArrowLeft,
+  Send,
+  Receipt,
+  Trash2,
+  AlertTriangle,
+  ArrowRightLeft,
+  Plus,
+  Minus,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Textarea } from "@/components/ui/textarea";
+import { usePOS } from "@/lib/pos-context";
+import { formatPrice } from "@/lib/mock-data";
+import { useModifiers } from "@/hooks/use-modifiers";
+import { useOrders } from "@/hooks/use-orders";
+import { useTableLayout } from "@/hooks/use-table-layout";
+import { MenuItemCard } from "@/components/pos/menu-item";
+import { OrderItemCard } from "@/components/pos/order-item";
+import { ModifierChips } from "@/components/pos/modifier-chips";
+import { CourseSeparator } from "@/components/pos/course-separator";
+import { TableTransferDialog } from "@/components/pos/table-transfer-dialog";
+import type { Product, SelectedModifier } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
-export default function OrderPage({ params }: { params: Promise<{ tableId: string }> }) {
-  const { tableId } = use(params)
-  const router = useRouter()
+export default function OrderPage({
+  params,
+}: {
+  params: Promise<{ tableId: string }>;
+}) {
+  const { tableId } = use(params);
+  const router = useRouter();
   const {
     state,
     getTable,
@@ -24,9 +50,24 @@ export default function OrderPage({ params }: { params: Promise<{ tableId: strin
     getProductsByCategory,
     addItemToOrder,
     dispatch,
-  } = usePOS()
-  
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  } = usePOS();
+  const { getModifiersForProduct, calculateItemPrice } = useModifiers();
+  const { sendToKitchen, requestBill, cancelOrder } = useOrders();
+  const { transferTable } = useTableLayout();
+
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  // Modifier sheet state
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [itemQuantity, setItemQuantity] = useState(1);
+  const [selectedModifiers, setSelectedModifiers] = useState<
+    SelectedModifier[]
+  >([]);
+  const [itemNotes, setItemNotes] = useState("");
+  const [currentCourse, setCurrentCourse] = useState(1);
+
+  // Transfer dialog state
+  const [isTransferOpen, setIsTransferOpen] = useState(false);
 
   if (!state.isLoaded) {
     return (
@@ -44,93 +85,238 @@ export default function OrderPage({ params }: { params: Promise<{ tableId: strin
           <Skeleton className="h-96 rounded-xl" />
         </div>
       </div>
-    )
+    );
   }
 
-  const table = getTable(tableId)
-  const order = getActiveOrderForTable(tableId)
+  const table = getTable(tableId);
+  const order = getActiveOrderForTable(tableId);
 
   if (!table) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <p className="text-muted-foreground">Το τραπέζι δεν βρέθηκε</p>
-        <Button variant="outline" className="mt-4" onClick={() => router.push('/tables')}>
+        <Button
+          variant="outline"
+          className="mt-4"
+          onClick={() => router.push("/tables")}
+        >
           Επιστροφή στα τραπέζια
         </Button>
       </div>
-    )
+    );
   }
 
-  const categories = state.categories
-  const activeCategory = selectedCategory || categories[0]?.id
-  const products = activeCategory ? getProductsByCategory(activeCategory) : []
+  const categories = state.categories;
+  const activeCategory = selectedCategory || categories[0]?.id;
+  const products = activeCategory ? getProductsByCategory(activeCategory) : [];
 
-  const handleAddItem = (product: Product) => {
-    if (!order) return
-    addItemToOrder(order.id, product)
-  }
+  const pendingItems = order?.items.filter((i) => i.status === "pending") || [];
+  const sentItems = order?.items.filter((i) => i.status !== "pending") || [];
+  const hasKitchenItems = sentItems.length > 0;
+
+  // Group pending items by course
+  const pendingByCourse = useMemo(() => {
+    const groups = new Map<number, typeof pendingItems>();
+    for (const item of pendingItems) {
+      const courseItems = groups.get(item.course) || [];
+      courseItems.push(item);
+      groups.set(item.course, courseItems);
+    }
+    return Array.from(groups.entries()).sort(([a], [b]) => a - b);
+  }, [pendingItems]);
+
+  // Group sent items by course
+  const sentByCourse = useMemo(() => {
+    const groups = new Map<number, typeof sentItems>();
+    for (const item of sentItems) {
+      const courseItems = groups.get(item.course) || [];
+      courseItems.push(item);
+      groups.set(item.course, courseItems);
+    }
+    return Array.from(groups.entries()).sort(([a], [b]) => a - b);
+  }, [sentItems]);
+
+  const handleOpenModifierSheet = (product: Product) => {
+    setSelectedProduct(product);
+    setItemQuantity(1);
+    setSelectedModifiers([]);
+    setItemNotes("");
+  };
+
+  const handleCloseModifierSheet = () => {
+    setSelectedProduct(null);
+  };
+
+  const handleToggleModifier = (modifier: {
+    id: string;
+    name: string;
+    price: number;
+  }) => {
+    setSelectedModifiers((prev) => {
+      const exists = prev.find((m) => m.modifierId === modifier.id);
+      if (exists) {
+        return prev.filter((m) => m.modifierId !== modifier.id);
+      }
+      return [
+        ...prev,
+        {
+          modifierId: modifier.id,
+          name: modifier.name,
+          price: modifier.price,
+        },
+      ];
+    });
+  };
+
+  const handleAddItemWithModifiers = () => {
+    if (!order || !selectedProduct) return;
+    addItemToOrder(order.id, selectedProduct, {
+      quantity: itemQuantity,
+      notes: itemNotes || undefined,
+      modifiers: selectedModifiers,
+      course: currentCourse,
+    });
+    handleCloseModifierSheet();
+  };
 
   const handleUpdateQuantity = (itemId: string, quantity: number) => {
-    if (!order) return
-    const item = order.items.find((i) => i.id === itemId)
-    if (!item) return
+    if (!order) return;
+    const item = order.items.find((i) => i.id === itemId);
+    if (!item) return;
     dispatch({
-      type: 'UPDATE_ORDER_ITEM',
+      type: "UPDATE_ORDER_ITEM",
       payload: { orderId: order.id, item: { ...item, quantity } },
-    })
-  }
+    });
+  };
 
   const handleRemoveItem = (itemId: string) => {
-    if (!order) return
+    if (!order) return;
     dispatch({
-      type: 'REMOVE_ORDER_ITEM',
+      type: "REMOVE_ORDER_ITEM",
       payload: { orderId: order.id, itemId },
-    })
-  }
+    });
+  };
 
   const handleSendToKitchen = () => {
-    if (!order) return
-    // Mark all pending items as preparing
-    order.items.forEach((item) => {
-      if (item.status === 'pending') {
-        dispatch({
-          type: 'UPDATE_ITEM_STATUS',
-          payload: { orderId: order.id, itemId: item.id, status: 'preparing' },
-        })
-      }
-    })
-  }
+    if (!order) return;
+    sendToKitchen(order.id);
+  };
 
   const handleRequestBill = () => {
-    dispatch({
-      type: 'SET_TABLE_STATUS',
-      payload: { tableId, status: 'bill-requested', orderId: order?.id },
-    })
-    router.push(`/checkout/${tableId}`)
-  }
+    if (!order) return;
+    requestBill(tableId, order.id);
+    router.push(`/checkout/${tableId}`);
+  };
 
   const handleCancelOrder = () => {
-    if (!order) return
-    dispatch({ type: 'CANCEL_ORDER', payload: order.id })
-    router.push('/tables')
-  }
+    if (!order) return;
+    cancelOrder(order.id);
+    router.push("/tables");
+  };
 
-  const pendingItems = order?.items.filter((i) => i.status === 'pending') || []
-  const sentItems = order?.items.filter((i) => i.status !== 'pending') || []
+  const handleToggleRush = () => {
+    if (!order) return;
+    dispatch({ type: "TOGGLE_RUSH", payload: order.id });
+  };
+
+  const handleTransfer = (toTableId: string) => {
+    if (!order) return;
+    transferTable(order.id, tableId, toTableId);
+    router.push(`/orders/${toTableId}`);
+  };
+
+  const handleNewCourse = () => {
+    setCurrentCourse((prev) => prev + 1);
+  };
+
+  const applicableModifiers = selectedProduct
+    ? getModifiersForProduct(selectedProduct)
+    : [];
+
+  const sheetTotalPrice = selectedProduct
+    ? calculateItemPrice(selectedProduct.price, selectedModifiers, itemQuantity)
+    : 0;
+
+  const renderModifiersText = (item: (typeof pendingItems)[0]) => {
+    if (item.modifiers.length === 0) return null;
+    const text = item.modifiers.map((m) => m.name).join(", ");
+    return (
+      <p className="text-xs text-amber-600 dark:text-amber-400 truncate">
+        {text}
+      </p>
+    );
+  };
+
+  const renderItemsWithCourses = (
+    groups: [number, typeof pendingItems][],
+    disabled: boolean,
+  ) => {
+    return groups.map(([course, items], groupIndex) => (
+      <div key={course} className="space-y-2">
+        {(groups.length > 1 || course > 1) && groupIndex >= 0 && (
+          <CourseSeparator courseNumber={course} />
+        )}
+        {items.map((item) => (
+          <div key={item.id} className="space-y-0.5">
+            <OrderItemCard
+              item={item}
+              onUpdateQuantity={handleUpdateQuantity}
+              onRemove={handleRemoveItem}
+              disabled={disabled}
+            />
+            {renderModifiersText(item)}
+          </div>
+        ))}
+      </div>
+    ));
+  };
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.push('/tables')}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => router.push("/tables")}
+        >
           <ArrowLeft className="size-5" />
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold text-foreground">
             Τραπέζι {table.number}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {order?.items.length || 0} προϊόντα • {formatPrice(order?.total || 0)}
+            {order?.items.length || 0} προϊόντα •{" "}
+            {formatPrice(order?.total || 0)}
           </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {order && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                order.isRush && "text-red-500 hover:text-red-600 bg-red-500/10",
+              )}
+              onClick={handleToggleRush}
+              title={order.isRush ? "Ακύρωση RUSH" : "RUSH"}
+            >
+              <AlertTriangle
+                className={cn("size-5", order.isRush && "fill-red-500")}
+              />
+            </Button>
+          )}
+          {order && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsTransferOpen(true)}
+              title="Μεταφορά τραπεζιού"
+            >
+              <ArrowRightLeft className="size-5" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -143,7 +329,9 @@ export default function OrderPage({ params }: { params: Promise<{ tableId: strin
               {categories.map((category) => (
                 <Button
                   key={category.id}
-                  variant={activeCategory === category.id ? 'default' : 'outline'}
+                  variant={
+                    activeCategory === category.id ? "default" : "outline"
+                  }
                   size="sm"
                   onClick={() => setSelectedCategory(category.id)}
                   className="shrink-0"
@@ -160,7 +348,7 @@ export default function OrderPage({ params }: { params: Promise<{ tableId: strin
               <MenuItemCard
                 key={product.id}
                 product={product}
-                onAdd={handleAddItem}
+                onAdd={handleOpenModifierSheet}
               />
             ))}
           </div>
@@ -191,38 +379,34 @@ export default function OrderPage({ params }: { params: Promise<{ tableId: strin
               </p>
             ) : (
               <>
-                {/* Pending Items */}
+                {/* Pending Items grouped by course */}
                 {pendingItems.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs font-medium text-muted-foreground uppercase">
                       Προς αποστολή ({pendingItems.length})
                     </p>
-                    {pendingItems.map((item) => (
-                      <OrderItemCard
-                        key={item.id}
-                        item={item}
-                        onUpdateQuantity={handleUpdateQuantity}
-                        onRemove={handleRemoveItem}
-                      />
-                    ))}
+                    {renderItemsWithCourses(pendingByCourse, false)}
+
+                    {/* New Course button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-2"
+                      onClick={handleNewCourse}
+                    >
+                      <Plus className="size-3 mr-1" />
+                      Νέο Course
+                    </Button>
                   </div>
                 )}
 
-                {/* Sent Items */}
+                {/* Sent Items grouped by course */}
                 {sentItems.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs font-medium text-muted-foreground uppercase">
                       Στην κουζίνα ({sentItems.length})
                     </p>
-                    {sentItems.map((item) => (
-                      <OrderItemCard
-                        key={item.id}
-                        item={item}
-                        onUpdateQuantity={handleUpdateQuantity}
-                        onRemove={handleRemoveItem}
-                        disabled
-                      />
-                    ))}
+                    {renderItemsWithCourses(sentByCourse, true)}
                   </div>
                 )}
 
@@ -254,6 +438,19 @@ export default function OrderPage({ params }: { params: Promise<{ tableId: strin
                       Αποστολή στην Κουζίνα
                     </Button>
                   )}
+
+                  {/* RUSH toggle in actions */}
+                  {hasKitchenItems && (
+                    <Button
+                      variant={order.isRush ? "destructive" : "outline"}
+                      className="w-full"
+                      onClick={handleToggleRush}
+                    >
+                      <AlertTriangle className="size-4 mr-2" />
+                      {order.isRush ? "Ακύρωση RUSH" : "Σήμανση RUSH"}
+                    </Button>
+                  )}
+
                   {order.items.length > 0 && pendingItems.length === 0 && (
                     <Button
                       className="w-full"
@@ -271,6 +468,109 @@ export default function OrderPage({ params }: { params: Promise<{ tableId: strin
           </CardContent>
         </Card>
       </div>
+
+      {/* Modifier Selection Sheet */}
+      <Sheet
+        open={selectedProduct !== null}
+        onOpenChange={(open) => {
+          if (!open) handleCloseModifierSheet();
+        }}
+      >
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>{selectedProduct?.name}</SheetTitle>
+            {selectedProduct && (
+              <p className="text-sm text-muted-foreground">
+                {formatPrice(selectedProduct.price)}
+              </p>
+            )}
+          </SheetHeader>
+
+          <div className="flex flex-col gap-6 px-4 pb-4 flex-1">
+            {/* Quantity Selector */}
+            <div className="space-y-2">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
+                Ποσότητα
+              </p>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="size-9"
+                  onClick={() => setItemQuantity((q) => Math.max(1, q - 1))}
+                  disabled={itemQuantity <= 1}
+                >
+                  <Minus className="size-4" />
+                </Button>
+                <span className="w-10 text-center text-lg font-semibold">
+                  {itemQuantity}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="size-9"
+                  onClick={() => setItemQuantity((q) => q + 1)}
+                >
+                  <Plus className="size-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Modifier Chips */}
+            {applicableModifiers.length > 0 && (
+              <ModifierChips
+                modifiers={applicableModifiers}
+                selected={selectedModifiers}
+                onToggle={handleToggleModifier}
+              />
+            )}
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
+                Σημειώσεις
+              </p>
+              <Textarea
+                placeholder="Π.χ. χωρίς αλάτι..."
+                value={itemNotes}
+                onChange={(e) => setItemNotes(e.target.value)}
+                rows={2}
+              />
+            </div>
+
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* Total and Add button */}
+            <div className="space-y-3 border-t border-border pt-4">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Σύνολο</span>
+                <span className="text-lg font-semibold">
+                  {formatPrice(sheetTotalPrice)}
+                </span>
+              </div>
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={handleAddItemWithModifiers}
+              >
+                Προσθήκη
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Table Transfer Dialog */}
+      {order && (
+        <TableTransferDialog
+          open={isTransferOpen}
+          onOpenChange={setIsTransferOpen}
+          currentTableId={tableId}
+          orderId={order.id}
+          onTransfer={handleTransfer}
+        />
+      )}
     </div>
-  )
+  );
 }
