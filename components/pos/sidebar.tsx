@@ -18,6 +18,7 @@ import {
   UserCog,
   Bot,
   MessageSquare,
+  Wine,
 } from "lucide-react";
 import { StockAlertBadge } from "@/components/pos/stock-alert-badge";
 import {
@@ -67,6 +68,11 @@ const navItems = [
     title: "Αποθήκη",
     href: "/inventory",
     icon: Package,
+  },
+  {
+    title: "Μπαρ",
+    href: "/bar",
+    icon: Wine,
   },
   {
     title: "Συνταγές",
