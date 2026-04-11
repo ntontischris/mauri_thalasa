@@ -8,8 +8,14 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: 'EatFlow POS - Σύστημα Διαχείρισης Εστιατορίου',
-  description: 'Cloud POS και σύστημα διαχείρισης εστιατορίου με AI. Παραγγελιοληψία, κουζίνα, ταμείο και αναφορές σε μία πλατφόρμα.',
+  description: 'Cloud POS και σύστημα διαχείρισης εστιατορίου με AI. Παραγγελιοληψία, κουζίνα, ταμείο, κρατήσεις και αναφορές σε μία πλατφόρμα.',
   generator: 'v0.app',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'EatFlow POS',
+  },
   icons: {
     icon: [
       {
