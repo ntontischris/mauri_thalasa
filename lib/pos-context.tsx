@@ -30,6 +30,9 @@ import type {
   ChecklistType,
   AISettings,
   ChatMessage,
+  Reservation,
+  WaitlistEntry,
+  BookingSettings,
 } from "./types";
 import {
   initialTables,
@@ -74,6 +77,10 @@ interface POSState {
   activeStaffId: string | null;
   aiSettings: AISettings;
   chatHistory: ChatMessage[];
+  // Reservation state (i-host integration)
+  reservations: Reservation[];
+  waitlist: WaitlistEntry[];
+  bookingSettings: BookingSettings;
   isLoaded: boolean;
 }
 
@@ -189,7 +196,24 @@ type POSAction =
   // AI actions
   | { type: "UPDATE_AI_SETTINGS"; payload: AISettings }
   | { type: "ADD_CHAT_MESSAGE"; payload: ChatMessage }
-  | { type: "CLEAR_CHAT_HISTORY" };
+  | { type: "CLEAR_CHAT_HISTORY" }
+  // Reservation actions (i-host integration)
+  | { type: "ADD_RESERVATION"; payload: Reservation }
+  | { type: "UPDATE_RESERVATION"; payload: Reservation }
+  | { type: "DELETE_RESERVATION"; payload: string }
+  | { type: "CONFIRM_RESERVATION"; payload: string }
+  | { type: "SEAT_RESERVATION"; payload: { reservationId: string; tableId?: string } }
+  | { type: "CANCEL_RESERVATION"; payload: { reservationId: string; reason?: string } }
+  | { type: "MARK_NO_SHOW"; payload: string }
+  | { type: "COMPLETE_RESERVATION"; payload: string }
+  // Waitlist actions
+  | { type: "ADD_TO_WAITLIST"; payload: WaitlistEntry }
+  | { type: "UPDATE_WAITLIST_ENTRY"; payload: WaitlistEntry }
+  | { type: "REMOVE_FROM_WAITLIST"; payload: string }
+  | { type: "NOTIFY_WAITLIST"; payload: string }
+  | { type: "SEAT_FROM_WAITLIST"; payload: { waitlistId: string; tableId: string } }
+  // Booking settings
+  | { type: "UPDATE_BOOKING_SETTINGS"; payload: BookingSettings };
 
 // Helper functions
 function calculateTotal(items: OrderItem[]): number {
@@ -858,6 +882,135 @@ function posReducer(state: POSState, action: POSAction): POSState {
     case "CLEAR_CHAT_HISTORY":
       return { ...state, chatHistory: [] };
 
+    // === Reservation actions (i-host integration) ===
+    case "ADD_RESERVATION":
+      return { ...state, reservations: [...state.reservations, action.payload] };
+
+    case "UPDATE_RESERVATION":
+      return {
+        ...state,
+        reservations: state.reservations.map((r) =>
+          r.id === action.payload.id ? action.payload : r,
+        ),
+      };
+
+    case "DELETE_RESERVATION":
+      return {
+        ...state,
+        reservations: state.reservations.filter((r) => r.id !== action.payload),
+      };
+
+    case "CONFIRM_RESERVATION":
+      return {
+        ...state,
+        reservations: state.reservations.map((r) =>
+          r.id === action.payload
+            ? { ...r, status: "confirmed" as const, confirmedAt: new Date().toISOString() }
+            : r,
+        ),
+      };
+
+    case "SEAT_RESERVATION": {
+      const { reservationId, tableId } = action.payload;
+      return {
+        ...state,
+        reservations: state.reservations.map((r) =>
+          r.id === reservationId
+            ? {
+                ...r,
+                status: "seated" as const,
+                seatedAt: new Date().toISOString(),
+                tableId: tableId ?? r.tableId,
+              }
+            : r,
+        ),
+        tables: tableId
+          ? state.tables.map((t) =>
+              t.id === tableId ? { ...t, status: "occupied" as const } : t,
+            )
+          : state.tables,
+      };
+    }
+
+    case "CANCEL_RESERVATION":
+      return {
+        ...state,
+        reservations: state.reservations.map((r) =>
+          r.id === action.payload.reservationId
+            ? {
+                ...r,
+                status: "cancelled" as const,
+                cancelledAt: new Date().toISOString(),
+                cancellationReason: action.payload.reason,
+              }
+            : r,
+        ),
+      };
+
+    case "MARK_NO_SHOW":
+      return {
+        ...state,
+        reservations: state.reservations.map((r) =>
+          r.id === action.payload ? { ...r, status: "no_show" as const } : r,
+        ),
+      };
+
+    case "COMPLETE_RESERVATION":
+      return {
+        ...state,
+        reservations: state.reservations.map((r) =>
+          r.id === action.payload
+            ? { ...r, status: "completed" as const, completedAt: new Date().toISOString() }
+            : r,
+        ),
+      };
+
+    // Waitlist actions
+    case "ADD_TO_WAITLIST":
+      return { ...state, waitlist: [...state.waitlist, action.payload] };
+
+    case "UPDATE_WAITLIST_ENTRY":
+      return {
+        ...state,
+        waitlist: state.waitlist.map((w) =>
+          w.id === action.payload.id ? action.payload : w,
+        ),
+      };
+
+    case "REMOVE_FROM_WAITLIST":
+      return {
+        ...state,
+        waitlist: state.waitlist.filter((w) => w.id !== action.payload),
+      };
+
+    case "NOTIFY_WAITLIST":
+      return {
+        ...state,
+        waitlist: state.waitlist.map((w) =>
+          w.id === action.payload
+            ? { ...w, status: "notified" as const, notifiedAt: new Date().toISOString() }
+            : w,
+        ),
+      };
+
+    case "SEAT_FROM_WAITLIST": {
+      const { waitlistId, tableId: wTableId } = action.payload;
+      return {
+        ...state,
+        waitlist: state.waitlist.map((w) =>
+          w.id === waitlistId
+            ? { ...w, status: "seated" as const, tableId: wTableId, seatedAt: new Date().toISOString() }
+            : w,
+        ),
+        tables: state.tables.map((t) =>
+          t.id === wTableId ? { ...t, status: "occupied" as const } : t,
+        ),
+      };
+    }
+
+    case "UPDATE_BOOKING_SETTINGS":
+      return { ...state, bookingSettings: action.payload };
+
     default:
       return state;
   }
@@ -885,6 +1038,31 @@ const initialState: POSState = {
   activeStaffId: null,
   aiSettings: { openaiKey: "", enabled: false },
   chatHistory: [],
+  reservations: [],
+  waitlist: [],
+  bookingSettings: {
+    minPartySize: 1,
+    maxPartySize: 12,
+    defaultDurationMinutes: 90,
+    timeSlotIntervalMinutes: 30,
+    minAdvanceHours: 2,
+    maxAdvanceDays: 30,
+    operatingHours: {
+      monday: { open: "12:00", close: "23:30" },
+      tuesday: { open: "12:00", close: "23:30" },
+      wednesday: { open: "12:00", close: "23:30" },
+      thursday: { open: "12:00", close: "23:30" },
+      friday: { open: "12:00", close: "00:00" },
+      saturday: { open: "12:00", close: "00:00" },
+      sunday: { open: "12:00", close: "23:00" },
+    },
+    websiteBookingEnabled: true,
+    autoConfirm: false,
+    sendSmsConfirmation: true,
+    sendEmailConfirmation: true,
+    reminderHoursBefore: 3,
+    noShowThresholdMinutes: 15,
+  },
   isLoaded: false,
 };
 
@@ -917,7 +1095,7 @@ const POSContext = createContext<POSContextType | undefined>(undefined);
 
 // Storage key
 const STORAGE_KEY = "eatflow-pos-state";
-const STORAGE_VERSION = 7; // Increment when schema changes
+const STORAGE_VERSION = 8; // Increment when schema changes
 
 // Provider
 export function POSProvider({ children }: { children: ReactNode }) {
@@ -970,6 +1148,9 @@ export function POSProvider({ children }: { children: ReactNode }) {
           activeStaffId: state.activeStaffId,
           aiSettings: state.aiSettings,
           chatHistory: state.chatHistory,
+          reservations: state.reservations,
+          waitlist: state.waitlist,
+          bookingSettings: state.bookingSettings,
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
       } catch (e) {

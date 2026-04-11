@@ -13,6 +13,7 @@ import {
   Package,
   BookOpen,
   Users,
+  CalendarDays,
   Gift,
   UserCog,
   Bot,
@@ -31,6 +32,11 @@ import {
 } from "@/components/ui/sidebar";
 
 const navItems = [
+  {
+    title: "Κρατήσεις",
+    href: "/reservations",
+    icon: CalendarDays,
+  },
   {
     title: "Τραπέζια",
     href: "/tables",
