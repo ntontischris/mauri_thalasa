@@ -17,6 +17,7 @@ import {
   Gift,
   UserCog,
   Bot,
+  MessageSquare,
 } from "lucide-react";
 import { StockAlertBadge } from "@/components/pos/stock-alert-badge";
 import {
@@ -81,6 +82,11 @@ const navItems = [
     title: "Loyalty",
     href: "/loyalty",
     icon: Gift,
+  },
+  {
+    title: "Καμπάνιες",
+    href: "/campaigns",
+    icon: MessageSquare,
   },
   {
     title: "Προσωπικό",

@@ -5,7 +5,9 @@ import { usePOS } from "@/lib/pos-context";
 import { useReservations } from "@/hooks/use-reservations";
 import { ReservationForm } from "@/components/pos/reservation-form";
 import { ReservationTimeline } from "@/components/pos/reservation-timeline";
+import { ReservationCalendar } from "@/components/pos/reservation-calendar";
 import { WaitlistPanel } from "@/components/pos/waitlist-panel";
+import { CallerIdPopup } from "@/components/pos/caller-id-popup";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,6 +22,9 @@ import {
   Clock,
   UserX,
   TrendingUp,
+  Phone,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import type { Reservation } from "@/lib/types";
 
@@ -30,7 +35,11 @@ export default function ReservationsPage() {
   const today = new Date().toISOString().split("T")[0];
   const [selectedDate, setSelectedDate] = useState(today);
   const [formOpen, setFormOpen] = useState(false);
+  const [callerIdOpen, setCallerIdOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"timeline" | "calendar">("timeline");
   const [editReservation, setEditReservation] = useState<Reservation | undefined>();
+  const [prefillPhone, setPrefillPhone] = useState<string | undefined>();
+  const [prefillName, setPrefillName] = useState<string | undefined>();
 
   // Navigation
   const goToDate = (offset: number) => {
@@ -108,10 +117,16 @@ export default function ReservationsPage() {
             Διαχείριση κρατήσεων, αναμονής & online booking
           </p>
         </div>
-        <Button onClick={handleNew}>
-          <CalendarPlus className="mr-2 size-4" />
-          Νέα Κράτηση
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setCallerIdOpen(true)}>
+            <Phone className="mr-2 size-4" />
+            Caller ID
+          </Button>
+          <Button onClick={handleNew}>
+            <CalendarPlus className="mr-2 size-4" />
+            Νέα Κράτηση
+          </Button>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -169,7 +184,7 @@ export default function ReservationsPage() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Button size="icon" variant="ghost" onClick={() => goToDate(-1)}>
+                <Button size="icon" variant="ghost" onClick={() => goToDate(viewMode === "calendar" ? -7 : -1)}>
                   <ChevronLeft className="size-4" />
                 </Button>
                 <Button
@@ -179,20 +194,57 @@ export default function ReservationsPage() {
                 >
                   Σήμερα
                 </Button>
-                <Button size="icon" variant="ghost" onClick={() => goToDate(1)}>
+                <Button size="icon" variant="ghost" onClick={() => goToDate(viewMode === "calendar" ? 7 : 1)}>
                   <ChevronRight className="size-4" />
                 </Button>
               </div>
-              <CardTitle className="text-base">
-                {formatDisplayDate(selectedDate)}
-                <Badge variant="secondary" className="ml-2">
-                  {selectedReservations.filter((r) => r.status !== "cancelled" && r.status !== "no_show").length}
-                </Badge>
-              </CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base">
+                  {formatDisplayDate(selectedDate)}
+                  <Badge variant="secondary" className="ml-2">
+                    {selectedReservations.filter((r) => r.status !== "cancelled" && r.status !== "no_show").length}
+                  </Badge>
+                </CardTitle>
+                <div className="flex rounded-md border">
+                  <Button
+                    size="icon"
+                    variant={viewMode === "timeline" ? "default" : "ghost"}
+                    className="size-8 rounded-r-none"
+                    onClick={() => setViewMode("timeline")}
+                  >
+                    <List className="size-3.5" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant={viewMode === "calendar" ? "default" : "ghost"}
+                    className="size-8 rounded-l-none"
+                    onClick={() => setViewMode("calendar")}
+                  >
+                    <LayoutGrid className="size-3.5" />
+                  </Button>
+                </div>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
-            <ReservationTimeline date={selectedDate} onEdit={handleEdit} />
+            {viewMode === "timeline" ? (
+              <ReservationTimeline date={selectedDate} onEdit={handleEdit} />
+            ) : (
+              <ReservationCalendar
+                startDate={(() => {
+                  const d = new Date(selectedDate + "T12:00:00");
+                  const day = d.getDay();
+                  const diff = day === 0 ? -6 : 1 - day;
+                  d.setDate(d.getDate() + diff);
+                  return d.toISOString().split("T")[0];
+                })()}
+                selectedDate={selectedDate}
+                onSelectDate={(date) => {
+                  setSelectedDate(date);
+                  setViewMode("timeline");
+                }}
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -277,10 +329,25 @@ export default function ReservationsPage() {
         open={formOpen}
         onOpenChange={(open) => {
           setFormOpen(open);
-          if (!open) setEditReservation(undefined);
+          if (!open) {
+            setEditReservation(undefined);
+            setPrefillPhone(undefined);
+            setPrefillName(undefined);
+          }
         }}
         date={selectedDate}
         editReservation={editReservation}
+      />
+
+      {/* Caller ID Popup */}
+      <CallerIdPopup
+        open={callerIdOpen}
+        onOpenChange={setCallerIdOpen}
+        onCreateReservation={(phone, name) => {
+          setPrefillPhone(phone);
+          setPrefillName(name);
+          setFormOpen(true);
+        }}
       />
     </div>
   );
