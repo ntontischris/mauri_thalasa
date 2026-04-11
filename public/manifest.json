@@ -1,0 +1,25 @@
+{
+  "name": "EatFlow POS - Μαύρη Θάλασσα",
+  "short_name": "EatFlow",
+  "description": "Σύστημα διαχείρισης εστιατορίου - POS, Κρατήσεις, Κουζίνα, Αποθήκη",
+  "start_url": "/reservations",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#2563eb",
+  "orientation": "any",
+  "categories": ["business", "food"],
+  "lang": "el",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon0.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    }
+  ]
+}

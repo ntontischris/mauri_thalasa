@@ -274,6 +274,89 @@ export interface AISettings {
   enabled: boolean;
 }
 
+// === Reservation Types (i-host Integration) ===
+
+export type ReservationStatus =
+  | "pending"
+  | "confirmed"
+  | "seated"
+  | "completed"
+  | "cancelled"
+  | "no_show";
+
+export type ReservationSource =
+  | "phone"
+  | "walk_in"
+  | "website"
+  | "facebook"
+  | "instagram"
+  | "google"
+  | "manual";
+
+export type WaitlistStatus = "waiting" | "notified" | "seated" | "left";
+
+export interface Reservation {
+  id: string;
+  customerId?: string;
+  guestName: string;
+  guestPhone?: string;
+  guestEmail?: string;
+  partySize: number;
+  reservationDate: string; // YYYY-MM-DD
+  reservationTime: string; // HH:mm
+  estimatedDurationMinutes: number;
+  tableId?: string;
+  zoneId?: string;
+  status: ReservationStatus;
+  source: ReservationSource;
+  notes?: string;
+  specialRequests?: string;
+  occasion?: string;
+  allergies: string[];
+  confirmationSentAt?: string;
+  confirmedAt?: string;
+  seatedAt?: string;
+  completedAt?: string;
+  cancelledAt?: string;
+  cancellationReason?: string;
+  createdBy?: string;
+  createdAt: string;
+}
+
+export interface WaitlistEntry {
+  id: string;
+  customerId?: string;
+  guestName: string;
+  guestPhone?: string;
+  partySize: number;
+  status: WaitlistStatus;
+  priority: number;
+  estimatedWaitMinutes?: number;
+  preferredZoneId?: string;
+  tableId?: string;
+  joinedAt: string;
+  notifiedAt?: string;
+  seatedAt?: string;
+  leftAt?: string;
+  notes?: string;
+}
+
+export interface BookingSettings {
+  minPartySize: number;
+  maxPartySize: number;
+  defaultDurationMinutes: number;
+  timeSlotIntervalMinutes: number;
+  minAdvanceHours: number;
+  maxAdvanceDays: number;
+  operatingHours: Record<string, { open: string; close: string }>;
+  websiteBookingEnabled: boolean;
+  autoConfirm: boolean;
+  sendSmsConfirmation: boolean;
+  sendEmailConfirmation: boolean;
+  reminderHoursBefore: number;
+  noShowThresholdMinutes: number;
+}
+
 // Helper types
 export type TableStatus = Table["status"];
 export type OrderStatus = Order["status"];

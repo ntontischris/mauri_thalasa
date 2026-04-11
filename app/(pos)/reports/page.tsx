@@ -8,6 +8,7 @@ import AnalyticsKitchen from "@/components/pos/analytics-kitchen";
 import AnalyticsFoodCost from "@/components/pos/analytics-food-cost";
 import AnalyticsProductHistory from "@/components/pos/analytics-product-history";
 import AnalyticsExport from "@/components/pos/analytics-export";
+import AnalyticsReservations from "@/components/pos/analytics-reservations";
 
 type Tab =
   | "dashboard"
@@ -15,6 +16,7 @@ type Tab =
   | "kitchen"
   | "foodcost"
   | "products"
+  | "reservations"
   | "export";
 
 const TABS: { id: Tab; label: string }[] = [
@@ -23,6 +25,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "kitchen", label: "Κουζίνα" },
   { id: "foodcost", label: "Food Cost" },
   { id: "products", label: "Ιστορικό Πιάτων" },
+  { id: "reservations", label: "Κρατήσεις" },
   { id: "export", label: "Export" },
 ];
 
@@ -68,6 +71,7 @@ export default function ReportsPage() {
         {selectedTab === "kitchen" && <AnalyticsKitchen />}
         {selectedTab === "foodcost" && <AnalyticsFoodCost />}
         {selectedTab === "products" && <AnalyticsProductHistory />}
+        {selectedTab === "reservations" && <AnalyticsReservations />}
         {selectedTab === "export" && <AnalyticsExport />}
       </div>
     </div>

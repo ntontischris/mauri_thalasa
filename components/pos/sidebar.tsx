@@ -13,9 +13,11 @@ import {
   Package,
   BookOpen,
   Users,
+  CalendarDays,
   Gift,
   UserCog,
   Bot,
+  MessageSquare,
 } from "lucide-react";
 import { StockAlertBadge } from "@/components/pos/stock-alert-badge";
 import {
@@ -31,6 +33,11 @@ import {
 } from "@/components/ui/sidebar";
 
 const navItems = [
+  {
+    title: "Κρατήσεις",
+    href: "/reservations",
+    icon: CalendarDays,
+  },
   {
     title: "Τραπέζια",
     href: "/tables",
@@ -75,6 +82,11 @@ const navItems = [
     title: "Loyalty",
     href: "/loyalty",
     icon: Gift,
+  },
+  {
+    title: "Καμπάνιες",
+    href: "/campaigns",
+    icon: MessageSquare,
   },
   {
     title: "Προσωπικό",
