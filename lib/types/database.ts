@@ -166,6 +166,156 @@ export type KitchenItem = DbOrderItem & {
   order_item_modifiers: DbOrderItemModifier[];
 };
 
+// --- Customers ---
+
+export interface DbCustomer {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  birthday: string | null;
+  notes: string | null;
+  is_vip: boolean;
+  allergies: string[];
+  tags: string[];
+  loyalty_points: number;
+  stamp_count: number;
+  afm: string | null;
+  address: Record<string, unknown>;
+  contact: Record<string, unknown>;
+  billing: Record<string, unknown>;
+  is_active: boolean;
+  discount: number;
+  legacy_id: number | null;
+  source: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DbCustomerVisit {
+  id: string;
+  customer_id: string;
+  order_id: string | null;
+  date: string;
+  table_number: number;
+  total: number;
+  items: string[];
+  created_at: string;
+}
+
+// --- Inventory ---
+
+export type IngredientUnit = "kg" | "lt" | "pcs" | "gr" | "ml";
+export type IngredientCategory =
+  | "seafood"
+  | "meat"
+  | "vegetables"
+  | "dairy"
+  | "dry"
+  | "beverages"
+  | "other";
+export type WasteReason = "expired" | "damaged" | "overproduction" | "other";
+
+export interface DbIngredient {
+  id: string;
+  name: string;
+  unit: IngredientUnit;
+  current_stock: number;
+  min_stock: number;
+  cost_per_unit: number;
+  supplier_id: string | null;
+  category: IngredientCategory;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DbWasteEntry {
+  id: string;
+  ingredient_id: string;
+  quantity: number;
+  reason: WasteReason;
+  date: string;
+  notes: string | null;
+  created_at: string;
+}
+
+// --- Recipes ---
+
+export interface DbRecipe {
+  id: string;
+  product_id: string;
+  prep_time: number | null;
+  portion_size: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DbRecipeIngredient {
+  id: string;
+  recipe_id: string;
+  ingredient_id: string;
+  quantity: number;
+  unit: string;
+}
+
+export type RecipeWithIngredients = DbRecipe & {
+  recipe_ingredients: (DbRecipeIngredient & {
+    ingredients: DbIngredient;
+  })[];
+  products: { name: string; price: number };
+};
+
+// --- Suppliers ---
+
+export type SupplierOrderStatus = "draft" | "sent" | "received" | "cancelled";
+
+export interface DbSupplier {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  categories: IngredientCategory[];
+  afm: string | null;
+  address: Record<string, unknown>;
+  legacy_id: number | null;
+  source: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DbSupplierOrder {
+  id: string;
+  supplier_id: string;
+  status: SupplierOrderStatus;
+  created_at: string;
+  notes: string | null;
+}
+
+export interface DbSupplierOrderItem {
+  id: string;
+  supplier_order_id: string;
+  ingredient_id: string;
+  quantity: number;
+  estimated_cost: number;
+}
+
+export type SupplierOrderWithItems = DbSupplierOrder & {
+  supplier_order_items: (DbSupplierOrderItem & {
+    ingredients: { name: string; unit: string };
+  })[];
+  suppliers: { name: string };
+};
+
+export type IngredientWithSupplier = DbIngredient & {
+  suppliers: { name: string } | null;
+};
+
+export type WasteEntryWithIngredient = DbWasteEntry & {
+  ingredients: { name: string; unit: string };
+};
+
 // Insert types (what we send to Supabase)
 
 export interface InsertProduct {
