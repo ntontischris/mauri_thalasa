@@ -350,3 +350,115 @@ export interface InsertCategory {
   name: string;
   sort_order?: number;
 }
+
+// --- Staff ---
+
+export type StaffRole = "waiter" | "chef" | "barman" | "manager";
+export type ShiftType = "morning" | "afternoon" | "off";
+export type ChecklistType = "opening" | "closing";
+
+export interface DbShift {
+  id: string;
+  staff_id: string;
+  date: string;
+  type: ShiftType;
+  clock_in: string | null;
+  clock_out: string | null;
+}
+
+export interface DbChecklistItem {
+  id: string;
+  type: ChecklistType;
+  label: string;
+  checked: boolean;
+  created_at: string;
+}
+
+export interface DbStaffPerformance {
+  id: string;
+  staff_id: string;
+  tables_served: number;
+  revenue: number;
+  avg_service_time: number;
+  tips: number;
+  period_start: string;
+  period_end: string;
+  created_at: string;
+}
+
+// --- Reservations ---
+
+export type ReservationStatus =
+  | "pending"
+  | "confirmed"
+  | "seated"
+  | "completed"
+  | "cancelled"
+  | "no_show";
+export type WaitlistStatus = "waiting" | "notified" | "seated" | "left";
+
+export interface DbReservation {
+  id: string;
+  customer_id: string | null;
+  guest_name: string;
+  guest_phone: string | null;
+  guest_email: string | null;
+  party_size: number;
+  reservation_date: string;
+  reservation_time: string;
+  estimated_duration_minutes: number;
+  table_id: string | null;
+  zone_id: string | null;
+  status: ReservationStatus;
+  source: string;
+  notes: string | null;
+  special_requests: string | null;
+  occasion: string | null;
+  allergies: string | null;
+  confirmation_sent_at: string | null;
+  confirmed_at: string | null;
+  seated_at: string | null;
+  completed_at: string | null;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DbWaitlistEntry {
+  id: string;
+  customer_id: string | null;
+  guest_name: string;
+  guest_phone: string | null;
+  party_size: number;
+  status: WaitlistStatus;
+  priority: number;
+  estimated_wait_minutes: number;
+  preferred_zone_id: string | null;
+  table_id: string | null;
+  joined_at: string;
+  notified_at: string | null;
+  seated_at: string | null;
+  left_at: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface DbBookingSettings {
+  id: string;
+  min_party_size: number;
+  max_party_size: number;
+  default_duration_minutes: number;
+  time_slot_interval_minutes: number;
+  min_advance_hours: number;
+  max_advance_days: number;
+  operating_hours: Record<string, unknown>;
+  website_booking_enabled: boolean;
+  auto_confirm: boolean;
+  send_sms_confirmation: boolean;
+  send_email_confirmation: boolean;
+  reminder_hours_before: number;
+  no_show_threshold_minutes: number;
+  updated_at: string;
+}
