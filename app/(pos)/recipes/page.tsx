@@ -1,16 +1,28 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { BookOpen } from "lucide-react";
+import { getRecipes } from "@/lib/queries/recipes";
+import { getIngredients } from "@/lib/queries/ingredients";
+import { getProducts } from "@/lib/queries/products";
+import { RecipePanel } from "@/components/pos/recipe-panel";
 
-export default function RecipesPage() {
+export default async function RecipesPage() {
+  const [recipes, ingredients, products] = await Promise.all([
+    getRecipes(),
+    getIngredients(),
+    getProducts(),
+  ]);
+
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Συνταγές</h1>
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-          <BookOpen className="mb-4 size-12 opacity-30" />
-          <p>Σύντομα διαθέσιμο — Phase 3</p>
-        </CardContent>
-      </Card>
+      <div>
+        <h1 className="text-2xl font-bold">Συνταγές & Food Cost</h1>
+        <p className="text-muted-foreground">
+          {recipes.length} συνταγές από {products.length} προϊόντα
+        </p>
+      </div>
+      <RecipePanel
+        recipes={recipes}
+        ingredients={ingredients}
+        products={products}
+      />
     </div>
   );
 }
