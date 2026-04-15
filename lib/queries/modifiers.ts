@@ -30,5 +30,5 @@ export async function getModifiersByProduct(
     throw new Error(`Failed to fetch product modifiers: ${error.message}`);
   }
 
-  return data.map((d: { modifiers: DbModifier }) => d.modifiers);
+  return data.map((d: Record<string, unknown>) => d.modifiers as DbModifier);
 }

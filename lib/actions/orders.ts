@@ -239,7 +239,8 @@ export async function completeOrder(
       item.order_item_modifiers as { price: number }[]
     ).reduce((sum, m) => sum + m.price, 0);
     const itemTotal = (item.price + modifierSum) * item.quantity;
-    const vatRate = (item.products as { vat_rate: number })?.vat_rate ?? 24;
+    const vatRate =
+      (item.products as unknown as { vat_rate: number })?.vat_rate ?? 24;
     const vatAmount = itemTotal - itemTotal / (1 + vatRate / 100);
 
     total += itemTotal;

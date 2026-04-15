@@ -104,6 +104,7 @@ export function OrderPanel({
       price: product.price,
       quantity: 1,
       station: product.station,
+      course: 1,
     });
 
     if (!result.success) {
