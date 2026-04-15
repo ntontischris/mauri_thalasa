@@ -1,59 +1,33 @@
-"use client";
-
 import {
   SidebarProvider,
   SidebarInset,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { POSSidebar } from "@/components/pos/sidebar";
-import { POSProvider } from "@/lib/pos-context";
 import { Separator } from "@/components/ui/separator";
 import { StaffHeader } from "@/components/pos/staff-header";
-import { Clock } from "lucide-react";
-import { useEffect, useState } from "react";
+import { SupabaseProvider } from "@/components/providers/supabase-provider";
+import { Toaster } from "@/components/ui/sonner";
+import { CurrentTime } from "@/components/pos/current-time";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
-function CurrentTime() {
-  const [time, setTime] = useState<string>("");
-  const [date, setDate] = useState<string>("");
+export default async function POSLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      setTime(
-        now.toLocaleTimeString("el-GR", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      );
-      setDate(
-        now.toLocaleDateString("el-GR", {
-          weekday: "short",
-          day: "numeric",
-          month: "short",
-        }),
-      );
-    };
-
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  if (!time) return null;
+  if (!user) {
+    redirect("/login");
+  }
 
   return (
-    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-      <Clock className="size-4" />
-      <span className="font-medium text-foreground">{time}</span>
-      <span className="hidden sm:inline">•</span>
-      <span className="hidden sm:inline">{date}</span>
-    </div>
-  );
-}
-
-export default function POSLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <POSProvider>
+    <SupabaseProvider>
       <SidebarProvider defaultOpen={true}>
         <POSSidebar />
         <SidebarInset>
@@ -71,6 +45,7 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
           <main className="flex-1 overflow-auto p-4 md:p-6">{children}</main>
         </SidebarInset>
       </SidebarProvider>
-    </POSProvider>
+      <Toaster position="top-right" richColors />
+    </SupabaseProvider>
   );
 }
