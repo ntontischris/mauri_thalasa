@@ -51,6 +51,8 @@ export function CustomersPanel({ initialCustomers }: CustomersPanelProps) {
       is_vip: formData.get("is_vip") === "on",
       discount: Number(formData.get("discount")) || 0,
       notes: (formData.get("notes") as string) || undefined,
+      allergies: [],
+      tags: [],
     });
 
     if (result.success) {

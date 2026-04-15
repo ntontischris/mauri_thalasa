@@ -14,7 +14,7 @@ export async function getIngredients(): Promise<IngredientWithSupplier[]> {
     .order("category")
     .order("name");
   if (error) throw new Error(`Failed to fetch ingredients: ${error.message}`);
-  return data as IngredientWithSupplier[];
+  return data as unknown as IngredientWithSupplier[];
 }
 
 export async function getLowStockIngredients(): Promise<
@@ -28,7 +28,7 @@ export async function getLowStockIngredients(): Promise<
     )
     .filter("current_stock", "lte", "min_stock" as unknown as string);
   if (error) throw new Error(`Failed to fetch low stock: ${error.message}`);
-  return data as IngredientWithSupplier[];
+  return data as unknown as IngredientWithSupplier[];
 }
 
 export async function getWasteLog(): Promise<WasteEntryWithIngredient[]> {
@@ -41,5 +41,5 @@ export async function getWasteLog(): Promise<WasteEntryWithIngredient[]> {
     .order("date", { ascending: false })
     .limit(100);
   if (error) throw new Error(`Failed to fetch waste log: ${error.message}`);
-  return data as WasteEntryWithIngredient[];
+  return data as unknown as WasteEntryWithIngredient[];
 }
