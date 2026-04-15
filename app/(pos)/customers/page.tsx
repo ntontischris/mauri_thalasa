@@ -1,16 +1,19 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { Users } from "lucide-react";
+import { getCustomers } from "@/lib/queries/customers";
+import { CustomersPanel } from "@/components/pos/customers-panel";
 
-export default function CustomersPage() {
+export default async function CustomersPage() {
+  const customers = await getCustomers();
+
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Πελάτες</h1>
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-          <Users className="mb-4 size-12 opacity-30" />
-          <p>Σύντομα διαθέσιμο — Phase 3</p>
-        </CardContent>
-      </Card>
+      <div>
+        <h1 className="text-2xl font-bold">Πελάτες</h1>
+        <p className="text-muted-foreground">
+          {customers.length} πελάτες •{" "}
+          {customers.filter((c) => c.is_vip).length} VIP
+        </p>
+      </div>
+      <CustomersPanel initialCustomers={customers} />
     </div>
   );
 }
