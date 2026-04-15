@@ -1,79 +1,72 @@
-"use client";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { ReportsPanel } from "@/components/pos/reports-panel";
 
-import { useState } from "react";
-import { BarChart3 } from "lucide-react";
-import AnalyticsDashboard from "@/components/pos/analytics-dashboard";
-import AnalyticsSales from "@/components/pos/analytics-sales";
-import AnalyticsKitchen from "@/components/pos/analytics-kitchen";
-import AnalyticsFoodCost from "@/components/pos/analytics-food-cost";
-import AnalyticsProductHistory from "@/components/pos/analytics-product-history";
-import AnalyticsExport from "@/components/pos/analytics-export";
-import AnalyticsReservations from "@/components/pos/analytics-reservations";
+export default async function ReportsPage() {
+  const supabase = await createServerSupabaseClient();
 
-type Tab =
-  | "dashboard"
-  | "sales"
-  | "kitchen"
-  | "foodcost"
-  | "products"
-  | "reservations"
-  | "export";
+  // Today's completed orders
+  const today = new Date().toISOString().split("T")[0];
+  const { data: todayOrders } = await supabase
+    .from("orders")
+    .select("id, total, vat_amount, payment_method, completed_at, created_at")
+    .eq("status", "completed")
+    .gte("completed_at", `${today}T00:00:00`)
+    .order("completed_at", { ascending: false });
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "sales", label: "Πωλήσεις" },
-  { id: "kitchen", label: "Κουζίνα" },
-  { id: "foodcost", label: "Food Cost" },
-  { id: "products", label: "Ιστορικό Πιάτων" },
-  { id: "reservations", label: "Κρατήσεις" },
-  { id: "export", label: "Export" },
-];
+  // Top products (from order_items of completed orders)
+  const { data: topProducts } = await supabase
+    .from("order_items")
+    .select("product_name, quantity, price, orders!inner(status)")
+    .eq("orders.status", "completed")
+    .order("quantity", { ascending: false })
+    .limit(200);
 
-export default function ReportsPage() {
-  const [selectedTab, setSelectedTab] = useState<Tab>("dashboard");
+  // Aggregate top products
+  const productMap = new Map<
+    string,
+    { name: string; quantity: number; revenue: number }
+  >();
+  for (const item of topProducts ?? []) {
+    const existing = productMap.get(item.product_name) ?? {
+      name: item.product_name,
+      quantity: 0,
+      revenue: 0,
+    };
+    existing.quantity += item.quantity;
+    existing.revenue += item.price * item.quantity;
+    productMap.set(item.product_name, existing);
+  }
+  const topProductsList = Array.from(productMap.values())
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 20);
+
+  const orders = todayOrders ?? [];
+  const totalRevenue = orders.reduce((s, o) => s + (o.total ?? 0), 0);
+  const totalVat = orders.reduce((s, o) => s + (o.vat_amount ?? 0), 0);
+  const cashOrders = orders.filter((o) => o.payment_method === "cash");
+  const cardOrders = orders.filter((o) => o.payment_method === "card");
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <BarChart3 className="size-7 text-primary" />
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            Αναφορές & Analytics
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Αναλυτικά στατιστικά εστιατορίου
-          </p>
-        </div>
-      </div>
-
-      {/* Tab navigation */}
-      <div className="flex gap-1 rounded-lg border bg-muted/40 p-1">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setSelectedTab(tab.id)}
-            className={[
-              "flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-              selectedTab === tab.id
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            ].join(" ")}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab content */}
+    <div className="space-y-4">
       <div>
-        {selectedTab === "dashboard" && <AnalyticsDashboard />}
-        {selectedTab === "sales" && <AnalyticsSales />}
-        {selectedTab === "kitchen" && <AnalyticsKitchen />}
-        {selectedTab === "foodcost" && <AnalyticsFoodCost />}
-        {selectedTab === "products" && <AnalyticsProductHistory />}
-        {selectedTab === "reservations" && <AnalyticsReservations />}
-        {selectedTab === "export" && <AnalyticsExport />}
+        <h1 className="text-2xl font-bold">Αναφορές</h1>
+        <p className="text-muted-foreground">
+          Σήμερα: {orders.length} παραγγελίες
+        </p>
       </div>
+      <ReportsPanel
+        summary={{
+          totalOrders: orders.length,
+          totalRevenue,
+          totalVat,
+          avgCheck: orders.length > 0 ? totalRevenue / orders.length : 0,
+          cashRevenue: cashOrders.reduce((s, o) => s + (o.total ?? 0), 0),
+          cardRevenue: cardOrders.reduce((s, o) => s + (o.total ?? 0), 0),
+          cashCount: cashOrders.length,
+          cardCount: cardOrders.length,
+        }}
+        topProducts={topProductsList}
+      />
     </div>
   );
 }

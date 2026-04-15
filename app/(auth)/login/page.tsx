@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
+import { ensureStaffAccount } from "@/lib/actions/auth";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -62,20 +63,29 @@ export default function LoginPage() {
       });
 
       if (signInError) {
-        const { error: signUpError } = await supabase.auth.signUp({
+        // Create auth account via admin API (auto-confirmed, no email needed)
+        const createResult = await ensureStaffAccount(
+          member.id,
+          member.name,
+          member.role,
+          pinValue,
+        );
+
+        if (!createResult.success) {
+          toast.error("Σφάλμα δημιουργίας λογαριασμού");
+          setPin("");
+          setLoading(false);
+          return;
+        }
+
+        // Retry sign in after account creation
+        const { error: retryError } = await supabase.auth.signInWithPassword({
           email,
           password: pinValue,
-          options: {
-            data: {
-              staff_id: member.id,
-              staff_name: member.name,
-              role: member.role,
-            },
-          },
         });
 
-        if (signUpError) {
-          toast.error("Σφάλμα δημιουργίας λογαριασμού");
+        if (retryError) {
+          toast.error("Σφάλμα σύνδεσης");
           setPin("");
           setLoading(false);
           return;

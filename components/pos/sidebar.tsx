@@ -19,7 +19,6 @@ import {
   Bot,
   MessageSquare,
 } from "lucide-react";
-import { StockAlertBadge } from "@/components/pos/stock-alert-badge";
 import {
   Sidebar,
   SidebarContent,
@@ -145,7 +144,6 @@ export function POSSidebar() {
                       <Link href={item.href}>
                         <item.icon className="size-5" />
                         <span>{item.title}</span>
-                        {item.href === "/inventory" && <StockAlertBadge />}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
