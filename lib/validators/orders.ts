@@ -40,3 +40,15 @@ export type AddOrderItemInput = z.infer<typeof addOrderItemSchema>;
 export type UpdateItemQuantityInput = z.infer<typeof updateItemQuantitySchema>;
 export type UpdateItemStatusInput = z.infer<typeof updateItemStatusSchema>;
 export type CompleteOrderInput = z.infer<typeof completeOrderSchema>;
+
+export const sendCourseSchema = z.object({
+  orderId: z.string().uuid(),
+  courseNumber: z.number().int().min(1).max(10),
+});
+export type SendCourseInput = z.infer<typeof sendCourseSchema>;
+
+export const advanceCourseSchema = z.object({
+  orderId: z.string().uuid(),
+  newActiveCourse: z.number().int().min(1).max(10),
+});
+export type AdvanceCourseInput = z.infer<typeof advanceCourseSchema>;

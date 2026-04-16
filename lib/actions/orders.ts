@@ -9,10 +9,14 @@ import {
   updateItemQuantitySchema,
   updateItemStatusSchema,
   completeOrderSchema,
+  sendCourseSchema,
+  advanceCourseSchema,
   type AddOrderItemInput,
   type UpdateItemQuantityInput,
   type UpdateItemStatusInput,
   type CompleteOrderInput,
+  type SendCourseInput,
+  type AdvanceCourseInput,
 } from "@/lib/validators/orders";
 
 interface ActionResult<T = void> {
@@ -328,4 +332,54 @@ export async function fetchProductModifiers(
     const msg = err instanceof Error ? err.message : "Unknown error";
     return { success: false, error: msg };
   }
+}
+
+export async function sendCourseToKitchen(
+  input: SendCourseInput,
+): Promise<ActionResult<{ count: number }>> {
+  const parsed = sendCourseSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.errors[0].message };
+  }
+
+  const supabase = await createServerSupabaseClient();
+
+  const { data, error } = await supabase
+    .from("order_items")
+    .update({ status: "preparing" })
+    .eq("order_id", parsed.data.orderId)
+    .eq("course", parsed.data.courseNumber)
+    .eq("status", "pending")
+    .select("id");
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath("/kitchen");
+  revalidatePath("/orders");
+  return { success: true, data: { count: data?.length ?? 0 } };
+}
+
+export async function advanceCourse(
+  input: AdvanceCourseInput,
+): Promise<ActionResult> {
+  const parsed = advanceCourseSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.errors[0].message };
+  }
+
+  const supabase = await createServerSupabaseClient();
+
+  const { error } = await supabase
+    .from("orders")
+    .update({ active_course: parsed.data.newActiveCourse })
+    .eq("id", parsed.data.orderId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath("/orders");
+  return { success: true };
 }
