@@ -1,21 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import {
-  ArrowLeft,
-  Plus,
-  Minus,
-  Trash2,
-  CreditCard,
-  UtensilsCrossed,
-} from "lucide-react";
+import { ArrowLeft, ChefHat, UtensilsCrossed, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { useRealtimeOrder } from "@/lib/hooks/use-realtime-orders";
 import {
@@ -23,8 +15,15 @@ import {
   addOrderItem,
   updateItemQuantity,
   removeOrderItem,
+  sendCourseToKitchen,
 } from "@/lib/actions/orders";
 import { updateTableStatus } from "@/lib/actions/tables";
+import { calculateOrderSubtotal } from "@/lib/pricing/order-totals";
+import { MenuItemCard } from "./menu-item-card";
+import { OrderItemCard } from "./order-item-card";
+import { CourseSeparator } from "./course-separator";
+import { ModifierDialog, type ModifierSelection } from "./modifier-dialog";
+import { PaymentDialog } from "./payment-dialog";
 import type {
   DbTable,
   DbOrder,
@@ -63,48 +62,74 @@ export function OrderPanel({
     table.id,
   );
 
-  const handleAddProduct = async (product: DbProduct) => {
-    let currentOrderId = order?.id;
+  const [modifierProduct, setModifierProduct] = useState<DbProduct | null>(
+    null,
+  );
+  const [paymentOpen, setPaymentOpen] = useState(false);
 
-    // Create order if it doesn't exist
-    if (!currentOrderId) {
-      const result = await createOrder(table.id, table.number);
-      if (!result.success) {
-        toast.error(result.error);
-        return;
-      }
-      currentOrderId = result.data!.id;
-      setOrder({
-        id: currentOrderId,
-        table_id: table.id,
-        table_number: table.number,
-        status: "active",
-        payment_method: null,
-        total: 0,
-        vat_amount: 0,
-        discount_amount: 0,
-        active_course: 1,
-        is_rush: false,
-        notes: null,
-        customer_id: null,
-        created_by: null,
-        completed_by: null,
-        elorus_invoice_id: null,
-        fiscal_mark: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        completed_at: null,
-      });
+  const productVatRates = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of products) map.set(p.id, p.vat_rate);
+    return map;
+  }, [products]);
+
+  const activeCourse = order?.active_course ?? 1;
+
+  const ensureOrder = async (): Promise<string | null> => {
+    if (order?.id) return order.id;
+    const result = await createOrder(table.id, table.number);
+    if (!result.success) {
+      toast.error(result.error);
+      return null;
     }
+    const newId = result.data!.id;
+    setOrder({
+      id: newId,
+      table_id: table.id,
+      table_number: table.number,
+      status: "active",
+      payment_method: null,
+      total: 0,
+      vat_amount: 0,
+      discount_amount: 0,
+      active_course: 1,
+      is_rush: false,
+      notes: null,
+      customer_id: null,
+      created_by: null,
+      completed_by: null,
+      elorus_invoice_id: null,
+      fiscal_mark: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      completed_at: null,
+    });
+    return newId;
+  };
+
+  const handleProductClick = (product: DbProduct) => {
+    setModifierProduct(product);
+  };
+
+  const handleConfirmAdd = async (
+    product: DbProduct,
+    modifiers: ModifierSelection[],
+    notes: string,
+    course: number,
+  ) => {
+    const orderId = await ensureOrder();
+    if (!orderId) return;
 
     const result = await addOrderItem({
-      orderId: currentOrderId,
+      orderId,
       productId: product.id,
       productName: product.name,
       price: product.price,
       quantity: 1,
       station: product.station,
-      course: 1,
+      course,
+      notes: notes || undefined,
+      modifiers: modifiers.length > 0 ? modifiers : undefined,
     });
 
     if (!result.success) {
@@ -112,52 +137,78 @@ export function OrderPanel({
     }
   };
 
-  const handleUpdateQuantity = (
-    itemId: string,
-    currentQty: number,
-    delta: number,
-  ) => {
-    const newQty = currentQty + delta;
-    if (newQty < 1) return;
-
+  const handleIncrement = (itemId: string) => {
+    const item = items.find((i) => i.id === itemId);
+    if (!item) return;
     startTransition(async () => {
-      const result = await updateItemQuantity({
+      const r = await updateItemQuantity({
         itemId,
-        quantity: newQty,
+        quantity: item.quantity + 1,
       });
-      if (!result.success) {
-        toast.error(result.error);
-      }
+      if (!r.success) toast.error(r.error);
     });
   };
 
-  const handleRemoveItem = (itemId: string) => {
+  const handleDecrement = (itemId: string) => {
+    const item = items.find((i) => i.id === itemId);
+    if (!item || item.quantity <= 1) return;
     startTransition(async () => {
-      const result = await removeOrderItem(itemId);
-      if (!result.success) {
-        toast.error(result.error);
+      const r = await updateItemQuantity({
+        itemId,
+        quantity: item.quantity - 1,
+      });
+      if (!r.success) toast.error(r.error);
+    });
+  };
+
+  const handleRemove = (itemId: string) => {
+    startTransition(async () => {
+      const r = await removeOrderItem(itemId);
+      if (!r.success) toast.error(r.error);
+    });
+  };
+
+  const handleSendCourse = (courseNumber: number) => {
+    if (!order?.id) return;
+    startTransition(async () => {
+      const r = await sendCourseToKitchen({
+        orderId: order.id,
+        courseNumber,
+      });
+      if (!r.success) {
+        toast.error(r.error);
+        return;
       }
+      toast.success(
+        `Course ${courseNumber}: ${r.data?.count ?? 0} είδη στην κουζίνα`,
+      );
     });
   };
 
   const handleRequestBill = async () => {
     if (!order) return;
-    const result = await updateTableStatus(table.id, "bill-requested");
-    if (result.success) {
-      router.push(`/checkout/${table.id}`);
-    } else {
-      toast.error(result.error);
-    }
+    await updateTableStatus(table.id, "bill-requested");
+    setPaymentOpen(true);
   };
 
-  // Calculate totals
-  const subtotal = items.reduce((sum, item) => {
-    const modTotal = item.order_item_modifiers.reduce(
-      (ms, m) => ms + m.price,
-      0,
-    );
-    return sum + (item.price + modTotal) * item.quantity;
-  }, 0);
+  const subtotal = calculateOrderSubtotal(
+    items.map((i) => ({
+      price: i.price,
+      quantity: i.quantity,
+      modifiers: i.order_item_modifiers.map((m) => ({ price: m.price })),
+    })),
+  );
+
+  // Group items by course
+  const itemsByCourse = useMemo(() => {
+    const grouped = new Map<number, OrderItemWithModifiers[]>();
+    for (const item of items) {
+      const list = grouped.get(item.course) ?? [];
+      list.push(item);
+      grouped.set(item.course, list);
+    }
+    return Array.from(grouped.entries()).sort(([a], [b]) => a - b);
+  }, [items]);
 
   return (
     <div className="flex h-[calc(100vh-7rem)] flex-col gap-4 lg:flex-row">
@@ -189,7 +240,7 @@ export function OrderPanel({
             <TabsContent value="all" className="mt-3">
               <ProductGrid
                 products={products}
-                onAdd={handleAddProduct}
+                onClick={handleProductClick}
                 isPending={isPending}
               />
             </TabsContent>
@@ -197,7 +248,7 @@ export function OrderPanel({
               <TabsContent key={cat.id} value={cat.id} className="mt-3">
                 <ProductGrid
                   products={products.filter((p) => p.category_id === cat.id)}
-                  onAdd={handleAddProduct}
+                  onClick={handleProductClick}
                   isPending={isPending}
                 />
               </TabsContent>
@@ -225,92 +276,41 @@ export function OrderPanel({
             </p>
           ) : (
             <div className="space-y-2">
-              {items.map((item) => {
-                const modTotal = item.order_item_modifiers.reduce(
-                  (s, m) => s + m.price,
-                  0,
+              {itemsByCourse.map(([courseNumber, courseItems]) => {
+                const hasPending = courseItems.some(
+                  (i) => i.status === "pending",
                 );
-                const lineTotal = (item.price + modTotal) * item.quantity;
-
                 return (
-                  <div
-                    key={item.id}
-                    className="flex items-start gap-2 rounded-md border p-2"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">
-                        {item.product_name}
-                      </p>
-                      {item.order_item_modifiers.length > 0 && (
-                        <p className="text-xs text-amber-600">
-                          +{" "}
-                          {item.order_item_modifiers
-                            .map((m) => m.name)
-                            .join(", ")}
-                        </p>
-                      )}
-                      {item.notes && (
-                        <p className="text-xs text-muted-foreground italic">
-                          {item.notes}
-                        </p>
-                      )}
-                      <p className="text-xs text-muted-foreground">
-                        {formatPrice(item.price + modTotal)} × {item.quantity}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="text-sm font-semibold">
-                        {formatPrice(lineTotal)}
-                      </span>
-                      {item.status === "pending" && (
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="size-6"
-                            onClick={() =>
-                              handleUpdateQuantity(item.id, item.quantity, -1)
-                            }
-                            disabled={item.quantity <= 1 || isPending}
-                          >
-                            <Minus className="size-3" />
-                          </Button>
-                          <span className="w-5 text-center text-xs">
-                            {item.quantity}
-                          </span>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="size-6"
-                            onClick={() =>
-                              handleUpdateQuantity(item.id, item.quantity, 1)
-                            }
-                            disabled={isPending}
-                          >
-                            <Plus className="size-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-6 text-destructive"
-                            onClick={() => handleRemoveItem(item.id)}
-                            disabled={isPending}
-                          >
-                            <Trash2 className="size-3" />
-                          </Button>
-                        </div>
-                      )}
-                      {item.status !== "pending" && (
-                        <Badge variant="outline" className="text-xs">
-                          {item.status === "preparing"
-                            ? "Ετοιμάζεται"
-                            : item.status === "ready"
-                              ? "Έτοιμο"
-                              : "Σερβιρίστηκε"}
-                        </Badge>
+                  <div key={courseNumber} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <CourseSeparator
+                        courseNumber={courseNumber}
+                        itemCount={courseItems.length}
+                        isActive={courseNumber === activeCourse}
+                      />
+                      {hasPending && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSendCourse(courseNumber)}
+                          disabled={isPending}
+                          className="shrink-0"
+                        >
+                          <ChefHat className="mr-1 size-3" />
+                          Αποστολή
+                        </Button>
                       )}
                     </div>
+                    {courseItems.map((item) => (
+                      <OrderItemCard
+                        key={item.id}
+                        item={item}
+                        onIncrement={handleIncrement}
+                        onDecrement={handleDecrement}
+                        onRemove={handleRemove}
+                        disabled={isPending}
+                      />
+                    ))}
                   </div>
                 );
               })}
@@ -318,7 +318,7 @@ export function OrderPanel({
           )}
         </ScrollArea>
 
-        {items.length > 0 && (
+        {items.length > 0 && order && (
           <div className="border-t p-3 space-y-3">
             <Separator />
             <div className="flex justify-between text-sm">
@@ -338,17 +338,39 @@ export function OrderPanel({
           </div>
         )}
       </div>
+
+      {/* Modifier dialog */}
+      <ModifierDialog
+        product={modifierProduct}
+        open={modifierProduct !== null}
+        onOpenChange={(open) => !open && setModifierProduct(null)}
+        onConfirm={handleConfirmAdd}
+        defaultCourse={activeCourse}
+      />
+
+      {/* Payment dialog */}
+      {order && (
+        <PaymentDialog
+          order={order}
+          items={items}
+          tableId={table.id}
+          productVatRates={productVatRates}
+          open={paymentOpen}
+          onOpenChange={setPaymentOpen}
+          onComplete={() => router.push("/tables")}
+        />
+      )}
     </div>
   );
 }
 
 function ProductGrid({
   products,
-  onAdd,
+  onClick,
   isPending,
 }: {
   products: DbProduct[];
-  onAdd: (product: DbProduct) => void;
+  onClick: (product: DbProduct) => void;
   isPending: boolean;
 }) {
   if (products.length === 0) {
@@ -362,19 +384,12 @@ function ProductGrid({
   return (
     <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
       {products.map((product) => (
-        <button
+        <MenuItemCard
           key={product.id}
-          onClick={() => onAdd(product)}
+          product={product}
+          onClick={onClick}
           disabled={isPending}
-          className="flex flex-col items-start rounded-lg border p-3 text-left transition-colors hover:bg-accent active:scale-95 disabled:opacity-50"
-        >
-          <span className="text-sm font-medium leading-tight">
-            {product.name}
-          </span>
-          <span className="mt-1 text-sm font-bold text-primary">
-            {formatPrice(product.price)}
-          </span>
-        </button>
+        />
       ))}
     </div>
   );
