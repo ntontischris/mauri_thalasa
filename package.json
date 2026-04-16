@@ -75,6 +75,7 @@
     "@types/node": "^22",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "^4.3.0",
     "@vitest/ui": "^2.1.0",
     "csv-parse": "^6.2.1",
     "jsdom": "^25.0.0",
