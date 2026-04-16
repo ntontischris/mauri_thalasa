@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getModifiersByProduct } from "@/lib/queries/modifiers";
+import type { DbModifier } from "@/lib/types/database";
 import {
   addOrderItemSchema,
   updateItemQuantitySchema,
@@ -314,4 +316,16 @@ export async function cancelOrder(
   revalidatePath("/orders");
   revalidatePath("/kitchen");
   return { success: true };
+}
+
+export async function fetchProductModifiers(
+  productId: string,
+): Promise<ActionResult<DbModifier[]>> {
+  try {
+    const modifiers = await getModifiersByProduct(productId);
+    return { success: true, data: modifiers };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, error: msg };
+  }
 }
