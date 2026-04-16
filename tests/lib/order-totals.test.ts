@@ -58,9 +58,11 @@ describe("calculateVatBreakdown", () => {
     expect(breakdown).toHaveLength(2);
     const vat24 = breakdown.find((b) => b.rate === 24)!;
     expect(vat24.gross).toBe(30);
-    expect(vat24.vat).toBeCloseTo(5.806, 2);
-    expect(vat24.net).toBeCloseTo(24.194, 2);
+    expect(vat24.net).toBe(24.19);
+    expect(vat24.vat).toBe(5.81);
+    expect(vat24.net + vat24.vat).toBe(vat24.gross);
     const vat13 = breakdown.find((b) => b.rate === 13)!;
     expect(vat13.gross).toBe(10);
+    expect(vat13.net + vat13.vat).toBe(vat13.gross);
   });
 });

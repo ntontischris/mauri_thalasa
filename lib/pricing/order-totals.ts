@@ -35,10 +35,11 @@ export function calculateVatBreakdown(items: VatableItem[]): VatBreakdownRow[] {
     byRate.set(item.vatRate, (byRate.get(item.vatRate) ?? 0) + gross);
   }
   return Array.from(byRate.entries())
-    .map(([rate, gross]) => {
-      const net = gross / (1 + rate / 100);
-      const vat = gross - net;
-      return { rate, gross: round2(gross), vat: round2(vat), net: round2(net) };
+    .map(([rate, rawGross]) => {
+      const gross = round2(rawGross);
+      const net = round2(gross / (1 + rate / 100));
+      const vat = round2(gross - net);
+      return { rate, gross, vat, net };
     })
     .sort((a, b) => b.rate - a.rate);
 }
