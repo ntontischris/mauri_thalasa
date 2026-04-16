@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getTableById } from "@/lib/queries/tables";
 import { getActiveOrderByTable, getOrderItems } from "@/lib/queries/orders";
+import { getProducts } from "@/lib/queries/products";
 import { CheckoutFlow } from "@/components/pos/checkout-flow";
 
 interface CheckoutPageProps {
@@ -16,7 +17,17 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
   const order = await getActiveOrderByTable(tableId);
   if (!order) redirect(`/orders/${tableId}`);
 
-  const items = await getOrderItems(order.id);
+  const [items, products] = await Promise.all([
+    getOrderItems(order.id),
+    getProducts(),
+  ]);
 
-  return <CheckoutFlow table={table} order={order} items={items} />;
+  return (
+    <CheckoutFlow
+      table={table}
+      order={order}
+      items={items}
+      products={products}
+    />
+  );
 }

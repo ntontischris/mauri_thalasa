@@ -9,9 +9,12 @@ import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Banknote, CreditCard, Check, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { completeOrder } from "@/lib/actions/orders";
+import { calculateOrderSubtotal } from "@/lib/pricing/order-totals";
+import { ReceiptPreview } from "./receipt-preview";
 import type {
   DbTable,
   DbOrder,
+  DbProduct,
   OrderItemWithModifiers,
   PaymentMethod,
 } from "@/lib/types/database";
@@ -20,6 +23,7 @@ interface CheckoutFlowProps {
   table: DbTable;
   order: DbOrder;
   items: OrderItemWithModifiers[];
+  products: DbProduct[];
 }
 
 function formatPrice(price: number): string {
@@ -31,7 +35,12 @@ function formatPrice(price: number): string {
 
 type CheckoutStep = "payment" | "receipt";
 
-export function CheckoutFlow({ table, order, items }: CheckoutFlowProps) {
+export function CheckoutFlow({
+  table,
+  order,
+  items,
+  products,
+}: CheckoutFlowProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [step, setStep] = useState<CheckoutStep>("payment");
@@ -40,28 +49,27 @@ export function CheckoutFlow({ table, order, items }: CheckoutFlowProps) {
   );
   const [cashGiven, setCashGiven] = useState("");
 
-  // Calculate totals
-  const subtotal = items.reduce((sum, item) => {
-    const modTotal = item.order_item_modifiers.reduce((s, m) => s + m.price, 0);
-    return sum + (item.price + modTotal) * item.quantity;
-  }, 0);
+  const productVatRates = new Map<string, number>();
+  for (const p of products) productVatRates.set(p.id, p.vat_rate);
 
-  // Approximate VAT (24% standard rate for simplicity in display)
-  const vatAmount = subtotal - subtotal / 1.24;
-  const total = subtotal;
+  const subtotal = calculateOrderSubtotal(
+    items.map((i) => ({
+      price: i.price,
+      quantity: i.quantity,
+      modifiers: i.order_item_modifiers.map((m) => ({ price: m.price })),
+    })),
+  );
   const cashGivenNum = parseFloat(cashGiven) || 0;
-  const change = cashGivenNum - total;
+  const change = cashGivenNum - subtotal;
 
   const handleComplete = () => {
     if (!paymentMethod) return;
-
     startTransition(async () => {
       const result = await completeOrder({
         orderId: order.id,
         tableId: table.id,
         paymentMethod,
       });
-
       if (result.success) {
         setStep("receipt");
         toast.success("Πληρωμή ολοκληρώθηκε!");
@@ -71,88 +79,48 @@ export function CheckoutFlow({ table, order, items }: CheckoutFlowProps) {
     });
   };
 
+  const handlePrint = async () => {
+    try {
+      const response = await fetch("/api/print/receipt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: order.id,
+          paymentMethod,
+          cashGiven: paymentMethod === "cash" ? cashGivenNum : undefined,
+        }),
+      });
+      if (!response.ok) {
+        toast.error("Αποτυχία εκτύπωσης");
+        return;
+      }
+      const contentType = response.headers.get("content-type") ?? "";
+      if (contentType.includes("application/pdf")) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+      } else {
+        toast.success("Εστάλη στον εκτυπωτή");
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Σφάλμα δικτύου";
+      toast.error(`Αποτυχία εκτύπωσης: ${msg}`);
+    }
+  };
+
   if (step === "receipt") {
     return (
       <div className="mx-auto max-w-md space-y-4">
-        <Card>
-          <CardContent className="p-6 space-y-4 font-mono text-sm">
-            <div className="text-center space-y-1">
-              <p className="text-base font-bold">ΜΑΥΡΗ ΘΑΛΑΣΣΑ</p>
-              <p className="text-xs text-muted-foreground">
-                Νίκης 3, Καλαμαριά 55132
-              </p>
-              <p className="text-xs text-muted-foreground">ΑΦΜ: 800474837</p>
-            </div>
-
-            <Separator />
-
-            <div className="flex justify-between text-xs">
-              <span>Τραπέζι: {table.number}</span>
-              <span>
-                {new Date().toLocaleDateString("el-GR")}{" "}
-                {new Date().toLocaleTimeString("el-GR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-1">
-              {items.map((item) => {
-                const modTotal = item.order_item_modifiers.reduce(
-                  (s, m) => s + m.price,
-                  0,
-                );
-                const lineTotal = (item.price + modTotal) * item.quantity;
-                return (
-                  <div key={item.id} className="flex justify-between">
-                    <span>
-                      {item.quantity}× {item.product_name}
-                    </span>
-                    <span>{formatPrice(lineTotal)}</span>
-                  </div>
-                );
-              })}
-            </div>
-
-            <Separator />
-
-            <div className="space-y-1">
-              <div className="flex justify-between">
-                <span>Καθαρή αξία</span>
-                <span>{formatPrice(total - vatAmount)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>ΦΠΑ</span>
-                <span>{formatPrice(vatAmount)}</span>
-              </div>
-              <div className="flex justify-between font-bold text-base">
-                <span>ΣΥΝΟΛΟ</span>
-                <span>{formatPrice(total)}</span>
-              </div>
-            </div>
-
-            <Separator />
-
-            <div className="flex justify-between text-xs">
-              <span>
-                Πληρωμή: {paymentMethod === "cash" ? "Μετρητά" : "Κάρτα"}
-              </span>
-              {paymentMethod === "cash" && cashGivenNum > 0 && (
-                <span>Ρέστα: {formatPrice(change)}</span>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        <ReceiptPreview
+          order={order}
+          items={items}
+          productVatRates={productVatRates}
+          paymentMethod={paymentMethod}
+          cashGiven={paymentMethod === "cash" ? cashGivenNum : undefined}
+        />
 
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            className="flex-1"
-            onClick={() => window.print()}
-          >
+          <Button variant="outline" className="flex-1" onClick={handlePrint}>
             <Printer className="mr-2 size-4" />
             Εκτύπωση
           </Button>
@@ -180,7 +148,6 @@ export function CheckoutFlow({ table, order, items }: CheckoutFlowProps) {
         </h1>
       </div>
 
-      {/* Order summary */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Σύνοψη παραγγελίας</CardTitle>
@@ -198,7 +165,7 @@ export function CheckoutFlow({ table, order, items }: CheckoutFlowProps) {
                   {item.quantity}× {item.product_name}
                   {item.order_item_modifiers.length > 0 && (
                     <span className="text-xs text-muted-foreground ml-1">
-                      ( +
+                      ( +{" "}
                       {item.order_item_modifiers.map((m) => m.name).join(", ")})
                     </span>
                   )}
@@ -210,12 +177,11 @@ export function CheckoutFlow({ table, order, items }: CheckoutFlowProps) {
           <Separator className="my-2" />
           <div className="flex justify-between font-bold text-lg">
             <span>Σύνολο</span>
-            <span>{formatPrice(total)}</span>
+            <span>{formatPrice(subtotal)}</span>
           </div>
         </CardContent>
       </Card>
 
-      {/* Payment method */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Τρόπος πληρωμής</CardTitle>
@@ -272,7 +238,7 @@ export function CheckoutFlow({ table, order, items }: CheckoutFlowProps) {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCashGiven(total.toFixed(2))}
+                  onClick={() => setCashGiven(subtotal.toFixed(2))}
                 >
                   Ακριβές
                 </Button>
@@ -299,14 +265,13 @@ export function CheckoutFlow({ table, order, items }: CheckoutFlowProps) {
               <CreditCard className="mx-auto mb-2 size-8 opacity-50" />
               <p>Χρησιμοποιήστε το POS terminal</p>
               <p className="text-lg font-bold text-foreground mt-1">
-                {formatPrice(total)}
+                {formatPrice(subtotal)}
               </p>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Complete button */}
       <Button
         className="w-full h-14 text-lg"
         size="lg"
