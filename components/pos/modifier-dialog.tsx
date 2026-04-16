@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -50,15 +51,24 @@ export function ModifierDialog({
 
   useEffect(() => {
     if (!product) return;
+    let cancelled = false;
     setSelectedIds([]);
     setNotes("");
     setCourse(defaultCourse);
     setLoading(true);
     fetchProductModifiers(product.id).then((result) => {
+      if (cancelled) return;
       setLoading(false);
-      if (result.success) setModifiers(result.data ?? []);
-      else setModifiers([]);
+      if (result.success) {
+        setModifiers(result.data ?? []);
+      } else {
+        setModifiers([]);
+        toast.error(`Αποτυχία φόρτωσης επιλογών: ${result.error}`);
+      }
     });
+    return () => {
+      cancelled = true;
+    };
   }, [product, defaultCourse]);
 
   const handleToggle = (modifierId: string) => {
