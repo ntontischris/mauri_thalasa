@@ -33,8 +33,6 @@ export function StaffHeader() {
     router.refresh();
   };
 
-  if (!staff) return null;
-
   const roleLabels: Record<string, string> = {
     manager: "Διευθυντής",
     waiter: "Σερβιτόρος",
@@ -46,10 +44,16 @@ export function StaffHeader() {
     <div className="flex items-center gap-2">
       <div className="flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2.5 py-1 text-sm">
         <User className="size-3.5 text-muted-foreground" />
-        <span className="font-medium">{staff.name}</span>
-        <span className="text-muted-foreground">
-          ({roleLabels[staff.role] ?? staff.role})
-        </span>
+        {staff ? (
+          <>
+            <span className="font-medium">{staff.name}</span>
+            <span className="text-muted-foreground">
+              ({roleLabels[staff.role] ?? staff.role})
+            </span>
+          </>
+        ) : (
+          <span className="inline-block h-4 w-24 animate-pulse rounded bg-muted" />
+        )}
       </div>
       <Button
         variant="ghost"
