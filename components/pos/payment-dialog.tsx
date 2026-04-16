@@ -90,12 +90,20 @@ export function PaymentDialog({
   };
 
   const handlePrint = async () => {
-    const response = await fetch("/api/print/receipt", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId: order.id }),
-    });
-    if (response.ok) {
+    try {
+      const response = await fetch("/api/print/receipt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: order.id,
+          paymentMethod,
+          cashGiven: paymentMethod === "cash" ? cashGivenNum : undefined,
+        }),
+      });
+      if (!response.ok) {
+        toast.error("Αποτυχία εκτύπωσης");
+        return;
+      }
       const contentType = response.headers.get("content-type") ?? "";
       if (contentType.includes("application/pdf")) {
         const blob = await response.blob();
@@ -104,8 +112,9 @@ export function PaymentDialog({
       } else {
         toast.success("Εστάλη στον εκτυπωτή");
       }
-    } else {
-      toast.error("Αποτυχία εκτύπωσης");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Σφάλμα δικτύου";
+      toast.error(`Αποτυχία εκτύπωσης: ${msg}`);
     }
   };
 
