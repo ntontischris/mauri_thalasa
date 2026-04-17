@@ -2,6 +2,7 @@
 
 import { DashboardTab } from "./dashboard-tab";
 import { SalesTab } from "./sales-tab";
+import { KitchenTab } from "./kitchen-tab";
 
 import { useState } from "react";
 import {
@@ -54,6 +55,11 @@ import type {
   VatBreakdownRow,
   ReservationsStats,
   HeatmapCell,
+  KitchenKpis,
+  PrepTimePerProduct,
+  StationPerformance,
+  HourlyThroughput,
+  CancelledOrder,
 } from "@/lib/queries/analytics";
 
 type Tab =
@@ -109,6 +115,11 @@ interface ReportsTabsProps {
   reservations: ReservationsStats;
   bottomProducts: TopProduct[];
   heatmap: HeatmapCell[];
+  kitchenKpis: KitchenKpis;
+  prepTimes: PrepTimePerProduct[];
+  stationPerf: StationPerformance[];
+  throughput: HourlyThroughput[];
+  cancellations: CancelledOrder[];
 }
 
 export function ReportsTabs({
@@ -120,6 +131,11 @@ export function ReportsTabs({
   reservations,
   bottomProducts,
   heatmap,
+  kitchenKpis,
+  prepTimes,
+  stationPerf,
+  throughput,
+  cancellations,
 }: ReportsTabsProps) {
   const [tab, setTab] = useState<Tab>("dashboard");
 
@@ -155,7 +171,7 @@ export function ReportsTabs({
       {tab === "sales" && (
         <SalesTab initialTop={topProducts} initialBottom={bottomProducts} initialHeatmap={heatmap} />
       )}
-      {tab === "kitchen" && <KitchenTab stations={stations} />}
+      {tab === "kitchen" && <KitchenTab kpis={kitchenKpis} prepTimes={prepTimes} stations={stationPerf} throughput={throughput} cancellations={cancellations} />}
       {tab === "foodcost" && <FoodCostPlaceholder />}
       {tab === "products" && <ProductsTab products={topProducts} />}
       {tab === "reservations" && <ReservationsTab stats={reservations} />}
@@ -165,97 +181,6 @@ export function ReportsTabs({
 }
 
 // ─────────────── Dashboard ───────────────
-// ─────────────── Sales ───────────────
-// ─────────────── Kitchen ───────────────
-function KitchenTab({ stations }: { stations: StationStat[] }) {
-  const total = stations.reduce((s, x) => s + x.items, 0);
-  return (
-    <div className="space-y-4">
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-        {stations.map((s) => (
-          <Card key={s.station}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs uppercase text-muted-foreground">
-                    {STATION_LABELS[s.station]}
-                  </p>
-                  <p className="text-2xl font-bold">{s.items}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {total > 0
-                      ? `${Math.round((s.items / total) * 100)}% του μήνα`
-                      : "—"}
-                  </p>
-                </div>
-                <div
-                  className="flex size-10 items-center justify-center rounded-full"
-                  style={{
-                    backgroundColor: `${STATION_COLORS[s.station]}22`,
-                  }}
-                >
-                  <Clock
-                    className="size-5"
-                    style={{ color: STATION_COLORS[s.station] }}
-                  />
-                </div>
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Μέσος χρόνος ετοιμασίας:{" "}
-                {s.avg_prep_seconds > 0
-                  ? `${Math.round(s.avg_prep_seconds / 60)}' ${s.avg_prep_seconds % 60}''`
-                  : "—"}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">
-            Κατανομή αιτημάτων ανά σταθμό
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={stations.filter((s) => s.items > 0)}
-                  dataKey="items"
-                  nameKey="station"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={90}
-                  label={({
-                    station,
-                    items,
-                  }: {
-                    station: string;
-                    items: number;
-                  }) =>
-                    `${STATION_LABELS[station as keyof typeof STATION_LABELS]}: ${items}`
-                  }
-                >
-                  {stations.map((s) => (
-                    <Cell key={s.station} fill={STATION_COLORS[s.station]} />
-                  ))}
-                </Pie>
-                <Legend
-                  formatter={(v: string) =>
-                    STATION_LABELS[v as keyof typeof STATION_LABELS] ?? v
-                  }
-                />
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
 // ─────────────── Food Cost placeholder ───────────────
 function FoodCostPlaceholder() {
   return (

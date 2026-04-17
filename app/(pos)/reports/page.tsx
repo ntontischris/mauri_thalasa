@@ -8,6 +8,11 @@ import {
   getStationStats,
   getReservationsStats,
   getHeatmap,
+  getKitchenKpis,
+  getPrepTimePerProduct,
+  getStationPerformance,
+  getHourlyThroughput,
+  getCancelledOrders,
 } from "@/lib/queries/analytics";
 import { ReportsTabs } from "@/components/pos/reports-tabs";
 
@@ -23,6 +28,11 @@ export default async function ReportsPage() {
     stations,
     reservations,
     heatmap,
+    kitchenKpis,
+    prepTimes,
+    stationPerf,
+    throughput,
+    cancellations,
   ] = await Promise.all([
     getAnalyticsSummary(),
     getDailyRevenue(30),
@@ -32,6 +42,11 @@ export default async function ReportsPage() {
     getStationStats(),
     getReservationsStats(),
     getHeatmap(30),
+    getKitchenKpis(),
+    getPrepTimePerProduct(10),
+    getStationPerformance(),
+    getHourlyThroughput(),
+    getCancelledOrders(20),
   ]);
 
   return (
@@ -55,6 +70,11 @@ export default async function ReportsPage() {
         stations={stations}
         reservations={reservations}
         heatmap={heatmap}
+        kitchenKpis={kitchenKpis}
+        prepTimes={prepTimes}
+        stationPerf={stationPerf}
+        throughput={throughput}
+        cancellations={cancellations}
       />
     </div>
   );

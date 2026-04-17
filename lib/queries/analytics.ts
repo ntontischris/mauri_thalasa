@@ -553,3 +553,182 @@ export async function getInventoryForCsv(): Promise<
     min_stock: number;
   }>;
 }
+
+export interface KitchenKpis {
+  avg_prep_minutes: number;
+  cancellations_today: number;
+  throughput_per_hour: number;
+}
+
+export interface PrepTimePerProduct {
+  name: string;
+  avg_seconds: number;
+  count: number;
+}
+
+export interface StationPerformance {
+  station: "hot" | "cold" | "bar" | "dessert";
+  orders: number;
+  avg_prep_minutes: number;
+  load_pct: number;
+}
+
+export interface HourlyThroughput {
+  hour: number;
+  orders: number;
+}
+
+export interface CancelledOrder {
+  id: string;
+  cancelled_at: string;
+  product_names: string;
+  reason: string | null;
+}
+
+export async function getKitchenKpis(): Promise<KitchenKpis> {
+  const supabase = await createServerSupabaseClient();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const monthS = new Date(today.getFullYear(), today.getMonth(), 1);
+
+  const [itemsRes, ordersTodayRes, cancellationsRes] = await Promise.all([
+    supabase
+      .from("order_items")
+      .select("created_at, updated_at, status")
+      .in("status", ["served", "ready"])
+      .gte("created_at", monthS.toISOString()),
+    supabase
+      .from("orders")
+      .select("id, completed_at")
+      .eq("status", "completed")
+      .gte("completed_at", today.toISOString()),
+    supabase
+      .from("orders")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "cancelled")
+      .gte("updated_at", today.toISOString()),
+  ]);
+
+  let totalSec = 0;
+  let count = 0;
+  for (const item of itemsRes.data ?? []) {
+    if (!item.created_at || !item.updated_at) continue;
+    const sec =
+      (new Date(item.updated_at).getTime() - new Date(item.created_at).getTime()) / 1000;
+    if (sec > 0 && sec < 60 * 60 * 4) {
+      totalSec += sec;
+      count += 1;
+    }
+  }
+  const avgPrepMinutes = count > 0 ? Math.round((totalSec / count / 60) * 10) / 10 : 0;
+
+  const ordersToday = ordersTodayRes.data ?? [];
+  const ordersPerHour: number[] = Array(24).fill(0);
+  for (const o of ordersToday) {
+    if (!o.completed_at) continue;
+    ordersPerHour[new Date(o.completed_at).getHours()] += 1;
+  }
+  const workingHours = ordersPerHour.slice(11, 24);
+  const activeHours = workingHours.filter((x) => x > 0).length;
+  const throughputPerHour = activeHours > 0
+    ? Math.round((workingHours.reduce((a, b) => a + b, 0) / activeHours) * 10) / 10
+    : 0;
+
+  return {
+    avg_prep_minutes: avgPrepMinutes,
+    cancellations_today: cancellationsRes.count ?? 0,
+    throughput_per_hour: throughputPerHour,
+  };
+}
+
+export async function getPrepTimePerProduct(limit = 10): Promise<PrepTimePerProduct[]> {
+  const supabase = await createServerSupabaseClient();
+  const monthS = new Date();
+  monthS.setDate(1);
+  monthS.setHours(0, 0, 0, 0);
+  const { data, error } = await supabase
+    .from("order_items")
+    .select("product_name, created_at, updated_at, status")
+    .in("status", ["served", "ready"])
+    .gte("created_at", monthS.toISOString());
+  if (error) throw new Error(error.message);
+
+  const agg = new Map<string, { total: number; count: number }>();
+  for (const r of data ?? []) {
+    if (!r.created_at || !r.updated_at) continue;
+    const sec = (new Date(r.updated_at).getTime() - new Date(r.created_at).getTime()) / 1000;
+    if (sec <= 0 || sec > 60 * 60 * 4) continue;
+    const name = r.product_name as string;
+    const bucket = agg.get(name) ?? { total: 0, count: 0 };
+    bucket.total += sec;
+    bucket.count += 1;
+    agg.set(name, bucket);
+  }
+
+  return Array.from(agg.entries())
+    .map(([name, v]) => ({ name, avg_seconds: Math.round(v.total / v.count), count: v.count }))
+    .filter((p) => p.count >= 3)
+    .sort((a, b) => b.avg_seconds - a.avg_seconds)
+    .slice(0, limit);
+}
+
+export async function getStationPerformance(): Promise<StationPerformance[]> {
+  const stats = await getStationStats();
+  const total = stats.reduce((s, x) => s + x.items, 0);
+  return stats.map((s) => ({
+    station: s.station,
+    orders: s.items,
+    avg_prep_minutes: s.avg_prep_seconds > 0 ? Math.round((s.avg_prep_seconds / 60) * 10) / 10 : 0,
+    load_pct: total > 0 ? Math.round((s.items / total) * 100) : 0,
+  }));
+}
+
+export async function getHourlyThroughput(): Promise<HourlyThroughput[]> {
+  const supabase = await createServerSupabaseClient();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const { data, error } = await supabase
+    .from("orders")
+    .select("completed_at")
+    .eq("status", "completed")
+    .gte("completed_at", today.toISOString());
+  if (error) throw new Error(error.message);
+
+  const buckets: HourlyThroughput[] = Array.from({ length: 24 }, (_, h) => ({ hour: h, orders: 0 }));
+  for (const o of data ?? []) {
+    if (!o.completed_at) continue;
+    buckets[new Date(o.completed_at).getHours()].orders += 1;
+  }
+  return buckets;
+}
+
+export async function getCancelledOrders(limit = 20): Promise<CancelledOrder[]> {
+  const supabase = await createServerSupabaseClient();
+  let data: Array<Record<string, unknown>> | null = null;
+  const tryFull = await supabase
+    .from("orders")
+    .select("id, updated_at, cancelled_at, cancellation_reason, order_items(product_name)")
+    .eq("status", "cancelled")
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+  if (!tryFull.error) {
+    data = tryFull.data as Array<Record<string, unknown>>;
+  } else {
+    const fb = await supabase
+      .from("orders")
+      .select("id, updated_at, order_items(product_name)")
+      .eq("status", "cancelled")
+      .order("updated_at", { ascending: false })
+      .limit(limit);
+    if (fb.error) return [];
+    data = fb.data as Array<Record<string, unknown>>;
+  }
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    cancelled_at: (r.cancelled_at as string) ?? (r.updated_at as string) ?? "",
+    product_names: ((r.order_items as Array<{ product_name: string }>) ?? [])
+      .map((x) => x.product_name)
+      .join(", "),
+    reason: (r.cancellation_reason as string) ?? null,
+  }));
+}
