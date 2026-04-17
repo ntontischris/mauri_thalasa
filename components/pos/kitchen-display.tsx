@@ -128,10 +128,13 @@ export function KitchenDisplay({
         </div>
       ) : (
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {Array.from(orderGroups.entries()).map(
-            ([orderId, { tableNumber, items: orderItems }]) => {
-              const oldestItem = orderItems.reduce((oldest, item) =>
-                item.created_at < oldest.created_at ? item : oldest,
+          {Array.from(orderGroups.entries())
+            .filter(([, group]) => group.items.length > 0)
+            .map(([orderId, { tableNumber, items: orderItems }]) => {
+              const oldestItem = orderItems.reduce(
+                (oldest, item) =>
+                  item.created_at < oldest.created_at ? item : oldest,
+                orderItems[0],
               );
               const minutes = getElapsedMinutes(oldestItem.created_at);
               const timerColor = getTimerColor(minutes);
@@ -273,8 +276,7 @@ export function KitchenDisplay({
                   </CardContent>
                 </Card>
               );
-            },
-          )}
+            })}
         </div>
       )}
     </div>
