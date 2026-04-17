@@ -304,12 +304,20 @@ export async function completeOrder(
 export async function cancelOrder(
   orderId: string,
   tableId: string,
+  reason?: string,
 ): Promise<ActionResult> {
   const supabase = await createServerSupabaseClient();
 
+  const trimmed = reason?.trim();
+  const patch: Record<string, unknown> = {
+    status: "cancelled",
+    cancelled_at: new Date().toISOString(),
+  };
+  if (trimmed) patch.cancellation_reason = trimmed;
+
   const { error } = await supabase
     .from("orders")
-    .update({ status: "cancelled" })
+    .update(patch)
     .eq("id", orderId);
 
   if (error) {

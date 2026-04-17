@@ -43,6 +43,7 @@ import { MenuItemCard } from "./menu-item-card";
 import { OrderItemCard } from "./order-item-card";
 import { CourseSeparator } from "./course-separator";
 import { ModifierChips } from "./modifier-chips";
+import { CancelOrderDialog } from "./cancel-order-dialog";
 import type {
   DbTable,
   DbOrder,
@@ -388,17 +389,19 @@ export function OrderPanel({
     });
   };
 
+  const [cancelOpen, setCancelOpen] = useState(false);
   const handleCancelOrder = () => {
     if (!order) return;
-    if (!window.confirm("Ακύρωση παραγγελίας;")) return;
-    startTransition(async () => {
-      const r = await cancelOrder(order.id, table.id);
-      if (!r.success) {
-        toast.error(r.error);
-        return;
-      }
-      router.push("/tables");
-    });
+    setCancelOpen(true);
+  };
+  const handleCancelConfirm = async (reason: string) => {
+    if (!order) return;
+    const r = await cancelOrder(order.id, table.id, reason);
+    if (!r.success) {
+      toast.error(r.error);
+      return;
+    }
+    router.push("/tables");
   };
 
   const handleToggleRush = () => {
@@ -780,6 +783,12 @@ export function OrderPanel({
           </div>
         </SheetContent>
       </Sheet>
+
+      <CancelOrderDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        onConfirm={handleCancelConfirm}
+      />
     </div>
   );
 }
