@@ -1,7 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, AlertTriangle, Clock } from "lucide-react";
+import {
+  ChevronRight,
+  AlertTriangle,
+  Clock,
+  Receipt,
+  ChefHat,
+  CircleCheck,
+  Sparkles,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -50,9 +58,67 @@ interface OrderCardProps {
   showWaiter?: string;
 }
 
+interface OrderReason {
+  text: string;
+  hint: string;
+  icon: React.ReactNode;
+  tone: "red" | "amber" | "emerald" | "muted";
+}
+
+function buildReason(order: ActiveOrderSummary): OrderReason {
+  const isBillRequested = order.table_status === "bill-requested";
+  if (isBillRequested) {
+    return {
+      text: "Φέρε τον λογαριασμό",
+      hint: "Ο πελάτης ζήτησε να πληρώσει",
+      icon: <Receipt className="size-4" />,
+      tone: "red",
+    };
+  }
+  if (order.ready_count > 0 && order.oldest_ready_at) {
+    const mins = elapsedMinutes(order.oldest_ready_at);
+    if (mins >= 5) {
+      return {
+        text: `Σέρβιρε τώρα — κρυώνει (${mins}')`,
+        hint: `${order.ready_count} έτοιμα πιάτα περιμένουν`,
+        icon: <AlertTriangle className="size-4" />,
+        tone: "red",
+      };
+    }
+    return {
+      text: `${order.ready_count} έτοιμα — σέρβιρε`,
+      hint: `Αναμονή ${formatElapsed(order.oldest_ready_at)}`,
+      icon: <CircleCheck className="size-4" />,
+      tone: "red",
+    };
+  }
+  if (order.preparing_count > 0) {
+    return {
+      text: `${order.preparing_count} στην κουζίνα`,
+      hint: `Ετοιμάζονται ${order.preparing_count} πιάτα`,
+      icon: <ChefHat className="size-4" />,
+      tone: "amber",
+    };
+  }
+  if (order.pending_count > 0) {
+    return {
+      text: `${order.pending_count} εκκρεμούν αποστολή`,
+      hint: "Στείλε τα στην κουζίνα",
+      icon: <ChefHat className="size-4" />,
+      tone: "amber",
+    };
+  }
+  return {
+    text: "Μόλις άνοιξε",
+    hint: "Προσθέτει είδη",
+    icon: <Sparkles className="size-4" />,
+    tone: "emerald",
+  };
+}
+
 export function OrderCard({ order, showWaiter }: OrderCardProps) {
   const bucket = classifyOrder(order);
-  const isBillRequested = order.table_status === "bill-requested";
+  const reason = buildReason(order);
 
   const badgeColor: Record<OrderBucket, string> = {
     attention: "border-red-500/50 bg-red-500/10 text-red-700 dark:text-red-400",
@@ -61,15 +127,12 @@ export function OrderCard({ order, showWaiter }: OrderCardProps) {
     new: "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
   };
 
-  const reason = isBillRequested
-    ? "Ζητάει λογαριασμό"
-    : order.ready_count > 0 && order.oldest_ready_at
-      ? `${order.ready_count} έτοιμα (${formatElapsed(order.oldest_ready_at)})`
-      : order.preparing_count > 0
-        ? `${order.preparing_count} στην κουζίνα`
-        : order.pending_count > 0
-          ? `${order.pending_count} εκκρεμούν`
-          : "Ανοιχτή παραγγελία";
+  const reasonTone: Record<OrderReason["tone"], string> = {
+    red: "text-red-700 dark:text-red-400",
+    amber: "text-amber-700 dark:text-amber-400",
+    emerald: "text-emerald-700 dark:text-emerald-400",
+    muted: "text-muted-foreground",
+  };
 
   return (
     <Link href={`/orders/${order.table_id}`} className="block">
@@ -104,7 +167,18 @@ export function OrderCard({ order, showWaiter }: OrderCardProps) {
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-muted-foreground truncate">{reason}</p>
+            <div
+              className={cn(
+                "flex items-center gap-1.5 text-sm font-medium",
+                reasonTone[reason.tone],
+              )}
+            >
+              {reason.icon}
+              <span className="truncate">{reason.text}</span>
+            </div>
+            <p className="text-xs text-muted-foreground truncate">
+              {reason.hint}
+            </p>
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Clock className="size-3" />

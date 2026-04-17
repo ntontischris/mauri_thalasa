@@ -293,7 +293,9 @@ export async function completeOrder(
   revalidatePath("/tables");
   revalidatePath("/orders");
   revalidatePath("/kitchen");
-  revalidatePath(`/checkout/${parsed.data.tableId}`);
+  // NOTE: intentionally NOT revalidating /checkout/[tableId] — the completed
+  // order would fail the page's "order must be active" guard and redirect
+  // away, erasing the receipt the user just saw.
   return { success: true };
 }
 
