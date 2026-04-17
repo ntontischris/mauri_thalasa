@@ -266,12 +266,14 @@ export async function completeOrder(
     .neq("status", "served");
 
   // Complete the order
+  const tipAmount = Math.round((parsed.data.tipAmount ?? 0) * 100) / 100;
   const { error: orderError } = await supabase
     .from("orders")
     .update({
       status: "completed",
       payment_method: parsed.data.paymentMethod,
       total,
+      tip_amount: tipAmount,
       vat_amount: vatTotal,
       completed_at: new Date().toISOString(),
     })

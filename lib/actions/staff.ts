@@ -101,6 +101,39 @@ export async function saveShift(
   return { success: true };
 }
 
+export async function clockIn(staffId: string): Promise<ActionResult> {
+  const supabase = await createServerSupabaseClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date().toISOString();
+  const { error } = await supabase.from("shifts").upsert(
+    {
+      staff_id: staffId,
+      date: today,
+      clock_in: now,
+      type: "morning",
+    },
+    { onConflict: "staff_id,date" },
+  );
+  if (error) return { success: false, error: error.message };
+  revalidatePath("/staff");
+  revalidatePath("/staff/performance");
+  return { success: true };
+}
+
+export async function clockOut(staffId: string): Promise<ActionResult> {
+  const supabase = await createServerSupabaseClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const { error } = await supabase
+    .from("shifts")
+    .update({ clock_out: new Date().toISOString() })
+    .eq("staff_id", staffId)
+    .eq("date", today);
+  if (error) return { success: false, error: error.message };
+  revalidatePath("/staff");
+  revalidatePath("/staff/performance");
+  return { success: true };
+}
+
 export async function toggleChecklistItem(
   id: string,
   checked: boolean,

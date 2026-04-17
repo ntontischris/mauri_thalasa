@@ -48,6 +48,7 @@ export function CheckoutFlow({
     null,
   );
   const [cashGiven, setCashGiven] = useState("");
+  const [tip, setTip] = useState("");
 
   const productVatRates = new Map<string, number>();
   for (const p of products) productVatRates.set(p.id, p.vat_rate);
@@ -59,8 +60,10 @@ export function CheckoutFlow({
       modifiers: i.order_item_modifiers.map((m) => ({ price: m.price })),
     })),
   );
+  const tipNum = parseFloat(tip) || 0;
+  const grandTotal = subtotal + tipNum;
   const cashGivenNum = parseFloat(cashGiven) || 0;
-  const change = cashGivenNum - subtotal;
+  const change = cashGivenNum - grandTotal;
 
   const handleComplete = () => {
     if (!paymentMethod) return;
@@ -69,6 +72,7 @@ export function CheckoutFlow({
         orderId: order.id,
         tableId: table.id,
         paymentMethod,
+        tipAmount: tipNum,
       });
       if (result.success) {
         setStep("receipt");
@@ -182,6 +186,52 @@ export function CheckoutFlow({
         </CardContent>
       </Card>
 
+      {/* Tip */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Φιλοδώρημα</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2">
+            {[5, 10, 15].map((pct) => (
+              <Button
+                key={pct}
+                variant="outline"
+                size="sm"
+                onClick={() => setTip((subtotal * (pct / 100)).toFixed(2))}
+              >
+                {pct}%
+              </Button>
+            ))}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setTip("")}
+              className="ml-auto"
+            >
+              Καθαρισμός
+            </Button>
+          </div>
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            value={tip}
+            onChange={(e) => setTip(e.target.value)}
+            placeholder="0.00"
+            className="font-mono"
+          />
+          {tipNum > 0 && (
+            <div className="flex justify-between text-sm pt-2 border-t">
+              <span className="text-muted-foreground">
+                Σύνολο με φιλοδώρημα
+              </span>
+              <span className="font-bold">{formatPrice(grandTotal)}</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Τρόπος πληρωμής</CardTitle>
@@ -238,7 +288,7 @@ export function CheckoutFlow({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCashGiven(subtotal.toFixed(2))}
+                  onClick={() => setCashGiven(grandTotal.toFixed(2))}
                 >
                   Ακριβές
                 </Button>
@@ -265,7 +315,7 @@ export function CheckoutFlow({
               <CreditCard className="mx-auto mb-2 size-8 opacity-50" />
               <p>Χρησιμοποιήστε το POS terminal</p>
               <p className="text-lg font-bold text-foreground mt-1">
-                {formatPrice(subtotal)}
+                {formatPrice(grandTotal)}
               </p>
             </div>
           )}

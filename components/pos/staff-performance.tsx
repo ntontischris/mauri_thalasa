@@ -4,7 +4,14 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Trophy, TrendingUp, Receipt, ChevronDown } from "lucide-react";
+import {
+  Trophy,
+  TrendingUp,
+  Receipt,
+  ChevronDown,
+  HandCoins,
+  Clock,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROLE_LABELS } from "@/lib/auth/roles";
 import type { StaffPerformanceRow } from "@/lib/queries/staff-performance";
@@ -22,18 +29,98 @@ function formatPrice(n: number): string {
   }).format(n);
 }
 
+function Sparkline({
+  data,
+  color = "currentColor",
+}: {
+  data: number[];
+  color?: string;
+}) {
+  const max = Math.max(1, ...data);
+  const width = 120;
+  const height = 30;
+  const barWidth = width / data.length;
+  return (
+    <svg
+      width={width}
+      height={height}
+      className="inline-block"
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
+    >
+      {data.map((v, i) => {
+        const h = Math.max(2, (v / max) * (height - 2));
+        const x = i * barWidth + 1;
+        const y = height - h;
+        return (
+          <rect
+            key={i}
+            x={x}
+            y={y}
+            width={Math.max(1, barWidth - 1.5)}
+            height={h}
+            fill={color}
+            opacity={v > 0 ? 0.85 : 0.25}
+            rx={1}
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
+function Kpi({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <Card>
+      <CardContent className="flex items-center gap-3 p-4">
+        <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            {label}
+          </p>
+          <p className="text-xl font-bold truncate">{value}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function StaffPerformance({ rows }: StaffPerformanceProps) {
   const [period, setPeriod] = useState<Period>("month");
 
   const pick = (r: StaffPerformanceRow) => {
     if (period === "today")
-      return { orders: r.orders_today, revenue: r.revenue_today };
+      return {
+        orders: r.orders_today,
+        revenue: r.revenue_today,
+        tips: r.tips_today,
+        hours: 0,
+      };
     if (period === "week")
-      return { orders: r.orders_week, revenue: r.revenue_week };
-    return { orders: r.orders_month, revenue: r.revenue_month };
+      return {
+        orders: r.orders_week,
+        revenue: r.revenue_week,
+        tips: r.tips_week,
+        hours: r.hours_week,
+      };
+    return {
+      orders: r.orders_month,
+      revenue: r.revenue_month,
+      tips: r.tips_month,
+      hours: r.hours_month,
+    };
   };
 
-  // Rank by period revenue
   const ranked = [...rows]
     .map((r) => ({ ...r, _pick: pick(r) }))
     .sort((a, b) => b._pick.revenue - a._pick.revenue);
@@ -44,9 +131,11 @@ export function StaffPerformance({ rows }: StaffPerformanceProps) {
     (acc, r) => {
       acc.orders += r._pick.orders;
       acc.revenue += r._pick.revenue;
+      acc.tips += r._pick.tips;
+      acc.hours += r._pick.hours;
       return acc;
     },
-    { orders: 0, revenue: 0 },
+    { orders: 0, revenue: 0, tips: 0, hours: 0 },
   );
 
   const periodLabels: Record<Period, string> = {
@@ -79,37 +168,31 @@ export function StaffPerformance({ rows }: StaffPerformanceProps) {
         </div>
       </div>
 
-      {/* Summary */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Card>
-          <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <Receipt className="size-5" />
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                Σύνολο παραγγελιών
-              </p>
-              <p className="text-xl font-bold">{totals.orders}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <TrendingUp className="size-5" />
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                Σύνολο τζίρου
-              </p>
-              <p className="text-xl font-bold">{formatPrice(totals.revenue)}</p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+        <Kpi
+          icon={<Receipt className="size-5" />}
+          label="Παραγγελίες"
+          value={String(totals.orders)}
+        />
+        <Kpi
+          icon={<TrendingUp className="size-5" />}
+          label="Τζίρος"
+          value={formatPrice(totals.revenue)}
+        />
+        <Kpi
+          icon={<HandCoins className="size-5" />}
+          label="Φιλοδωρήματα"
+          value={formatPrice(totals.tips)}
+        />
+        {period !== "today" && (
+          <Kpi
+            icon={<Clock className="size-5" />}
+            label="Ώρες εργασίας"
+            value={`${totals.hours.toFixed(1)}h`}
+          />
+        )}
       </div>
 
-      {/* Ranking */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Κατάταξη</CardTitle>
@@ -153,16 +236,24 @@ export function StaffPerformance({ rows }: StaffPerformanceProps) {
                         style={{ width: `${pct}%` }}
                       />
                     </div>
-                    <div className="mt-1 flex gap-4 text-xs text-muted-foreground">
+                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
                       <span>{r._pick.orders} παραγγελίες</span>
                       <span>
-                        Μέσος λογ.:{" "}
+                        Μέσος:{" "}
                         {formatPrice(
                           r._pick.orders > 0
                             ? r._pick.revenue / r._pick.orders
                             : 0,
                         )}
                       </span>
+                      {r._pick.tips > 0 && (
+                        <span className="text-emerald-600 dark:text-emerald-400">
+                          + {formatPrice(r._pick.tips)} φιλοδ.
+                        </span>
+                      )}
+                      {period !== "today" && r._pick.hours > 0 && (
+                        <span>{r._pick.hours.toFixed(1)}h</span>
+                      )}
                     </div>
                   </div>
 
@@ -178,10 +269,9 @@ export function StaffPerformance({ rows }: StaffPerformanceProps) {
         </CardContent>
       </Card>
 
-      {/* Detailed breakdown */}
       <details className="rounded-lg border">
         <summary className="flex cursor-pointer items-center justify-between p-4 text-sm font-medium hover:bg-muted/50">
-          <span>Αναλυτικά ανά υπάλληλο (Σήμερα / Εβδομάδα / Μήνας)</span>
+          <span>Αναλυτικά ανά υπάλληλο + τάση 14 ημερών</span>
           <ChevronDown className="size-4" />
         </summary>
         <div className="overflow-x-auto border-t">
@@ -192,7 +282,9 @@ export function StaffPerformance({ rows }: StaffPerformanceProps) {
                 <th className="px-3 py-2 text-right">Σήμερα</th>
                 <th className="px-3 py-2 text-right">Εβδομάδα</th>
                 <th className="px-3 py-2 text-right">Μήνας</th>
-                <th className="px-3 py-2 text-right">Μέσος λογ.</th>
+                <th className="px-3 py-2 text-right">Φιλοδ. μήνα</th>
+                <th className="px-3 py-2 text-right">Ώρες μήνα</th>
+                <th className="px-3 py-2 text-center">Τάση 14ημ.</th>
               </tr>
             </thead>
             <tbody>
@@ -246,8 +338,20 @@ export function StaffPerformance({ rows }: StaffPerformanceProps) {
                       <span className="text-muted-foreground">—</span>
                     )}
                   </td>
+                  <td className="px-3 py-2 text-right">
+                    {r.tips_month > 0 ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                        {formatPrice(r.tips_month)}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-right text-muted-foreground">
-                    {formatPrice(r.avg_ticket_month)}
+                    {r.hours_month > 0 ? `${r.hours_month.toFixed(1)}h` : "—"}
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    <Sparkline data={r.sparkline} color="hsl(var(--primary))" />
                   </td>
                 </tr>
               ))}

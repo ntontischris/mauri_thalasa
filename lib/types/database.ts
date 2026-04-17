@@ -128,6 +128,7 @@ export interface DbOrder {
   status: OrderStatus;
   payment_method: PaymentMethod | null;
   total: number;
+  tip_amount: number;
   vat_amount: number;
   discount_amount: number;
   active_course: number;

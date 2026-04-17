@@ -34,6 +34,7 @@ export const completeOrderSchema = z.object({
   orderId: z.string().uuid(),
   tableId: z.string().uuid(),
   paymentMethod: z.enum(["cash", "card"]),
+  tipAmount: z.number().min(0).default(0),
 });
 
 export type AddOrderItemInput = z.infer<typeof addOrderItemSchema>;

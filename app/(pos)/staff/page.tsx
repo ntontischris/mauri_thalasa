@@ -2,10 +2,15 @@ import Link from "next/link";
 import { BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getStaffMembers } from "@/lib/queries/staff";
+import { getTodayShifts } from "@/lib/queries/shifts";
 import { StaffPanel } from "@/components/pos/staff-panel";
+import { ClockPanel } from "@/components/pos/clock-panel";
 
 export default async function StaffPage() {
-  const staff = await getStaffMembers();
+  const [staff, shifts] = await Promise.all([
+    getStaffMembers(),
+    getTodayShifts(),
+  ]);
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -20,6 +25,9 @@ export default async function StaffPage() {
           </Link>
         </Button>
       </div>
+
+      <ClockPanel staff={staff} initialShifts={shifts} />
+
       <StaffPanel initialStaff={staff} />
     </div>
   );

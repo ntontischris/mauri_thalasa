@@ -288,6 +288,7 @@ export function OrderPanel({
       status: "active",
       payment_method: null,
       total: 0,
+      tip_amount: 0,
       vat_amount: 0,
       discount_amount: 0,
       active_course: 1,

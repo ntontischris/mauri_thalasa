@@ -57,6 +57,7 @@ export function PaymentDialog({
     null,
   );
   const [cashGiven, setCashGiven] = useState("");
+  const [tip, setTip] = useState("");
   const [isPending, startTransition] = useTransition();
 
   const subtotal = calculateOrderSubtotal(
@@ -66,11 +67,13 @@ export function PaymentDialog({
       modifiers: i.order_item_modifiers.map((m) => ({ price: m.price })),
     })),
   );
+  const tipNum = parseFloat(tip) || 0;
+  const grandTotal = subtotal + tipNum;
   const cashGivenNum = parseFloat(cashGiven) || 0;
-  const change = cashGivenNum - subtotal;
+  const change = cashGivenNum - grandTotal;
   const canPay =
     paymentMethod === "card" ||
-    (paymentMethod === "cash" && cashGivenNum >= subtotal);
+    (paymentMethod === "cash" && cashGivenNum >= grandTotal);
 
   const handlePay = () => {
     if (!paymentMethod) return;
@@ -79,6 +82,7 @@ export function PaymentDialog({
         orderId: order.id,
         tableId,
         paymentMethod,
+        tipAmount: tipNum,
       });
       if (!result.success) {
         toast.error(result.error);
@@ -138,11 +142,48 @@ export function PaymentDialog({
               <DialogTitle>Πληρωμή — Τραπέζι {order.table_number}</DialogTitle>
               <DialogDescription>
                 Σύνολο:{" "}
-                <span className="font-bold">{formatPrice(subtotal)}</span>
+                <span className="font-bold">{formatPrice(grandTotal)}</span>
+                {tipNum > 0 && (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    (+ {formatPrice(tipNum)} φιλοδώρημα)
+                  </span>
+                )}
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4">
+              {/* Tip */}
+              <div className="space-y-2 rounded-lg border p-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">Φιλοδώρημα</Label>
+                  <div className="flex gap-1">
+                    {[5, 10, 15].map((pct) => (
+                      <Button
+                        key={pct}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() =>
+                          setTip((subtotal * (pct / 100)).toFixed(2))
+                        }
+                      >
+                        {pct}%
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={tip}
+                  onChange={(e) => setTip(e.target.value)}
+                  placeholder="0.00"
+                  className="h-9 font-mono"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <Button
                   variant={paymentMethod === "cash" ? "default" : "outline"}
@@ -194,7 +235,7 @@ export function PaymentDialog({
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => setCashGiven(subtotal.toFixed(2))}
+                      onClick={() => setCashGiven(grandTotal.toFixed(2))}
                     >
                       Ακριβές
                     </Button>
@@ -220,7 +261,7 @@ export function PaymentDialog({
                   <CreditCard className="mx-auto mb-2 size-8 opacity-50" />
                   <p>Χρησιμοποιήστε το POS terminal</p>
                   <p className="text-lg font-bold text-foreground mt-1">
-                    {formatPrice(subtotal)}
+                    {formatPrice(grandTotal)}
                   </p>
                 </div>
               )}

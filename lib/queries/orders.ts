@@ -164,7 +164,7 @@ export async function getActiveOrderByTable(
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, table_id, table_number, status, payment_method, total, vat_amount, discount_amount, active_course, is_rush, notes, customer_id, created_by, completed_by, elorus_invoice_id, fiscal_mark, created_at, updated_at, completed_at",
+      "id, table_id, table_number, status, payment_method, total, tip_amount, vat_amount, discount_amount, active_course, is_rush, notes, customer_id, created_by, completed_by, elorus_invoice_id, fiscal_mark, created_at, updated_at, completed_at",
     )
     .eq("table_id", tableId)
     .eq("status", "active")
@@ -183,7 +183,7 @@ export async function getOrderById(orderId: string): Promise<DbOrder | null> {
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, table_id, table_number, status, payment_method, total, vat_amount, discount_amount, active_course, is_rush, notes, customer_id, created_by, completed_by, elorus_invoice_id, fiscal_mark, created_at, updated_at, completed_at",
+      "id, table_id, table_number, status, payment_method, total, tip_amount, vat_amount, discount_amount, active_course, is_rush, notes, customer_id, created_by, completed_by, elorus_invoice_id, fiscal_mark, created_at, updated_at, completed_at",
     )
     .eq("id", orderId)
     .single();
