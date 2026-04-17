@@ -91,9 +91,13 @@ export function OrderPanel({
     table.id,
   );
 
-  // Category selection
+  // Two-level navigation: course tab → category sub-tab → products
+  const firstAssignedCategory = categories.find((c) => c.course_id !== null);
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(
+    firstAssignedCategory?.course_id ?? courses[0]?.id ?? null,
+  );
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
-    categories.find((c) => c.course_id !== null)?.id ?? null,
+    firstAssignedCategory?.id ?? null,
   );
 
   // Modifier sheet state
@@ -143,13 +147,37 @@ export function OrderPanel({
     };
   };
 
-  // Hide categories not assigned to a course from the tab strip.
-  const assignedCategories = useMemo(
-    () => categories.filter((c) => c.course_id !== null),
-    [categories],
+  // Courses that actually have at least one category assigned — others are
+  // hidden from the POS until the owner fills them in.
+  const coursesWithCategories = useMemo(
+    () =>
+      courses.filter((course) =>
+        categories.some((cat) => cat.course_id === course.id),
+      ),
+    [courses, categories],
   );
 
-  const activeCategory = selectedCategoryId ?? assignedCategories[0]?.id;
+  const activeCourseId =
+    selectedCourseId &&
+    coursesWithCategories.some((c) => c.id === selectedCourseId)
+      ? selectedCourseId
+      : (coursesWithCategories[0]?.id ?? null);
+
+  // Categories within the active course
+  const categoriesInCourse = useMemo(
+    () =>
+      activeCourseId
+        ? categories.filter((cat) => cat.course_id === activeCourseId)
+        : [],
+    [categories, activeCourseId],
+  );
+
+  const activeCategory =
+    selectedCategoryId &&
+    categoriesInCourse.some((c) => c.id === selectedCategoryId)
+      ? selectedCategoryId
+      : (categoriesInCourse[0]?.id ?? null);
+
   const productsInCategory = useMemo(
     () =>
       activeCategory
@@ -157,6 +185,13 @@ export function OrderPanel({
         : [],
     [products, activeCategory],
   );
+
+  const handleCourseChange = (courseId: string) => {
+    setSelectedCourseId(courseId);
+    // reset category to first in the new course
+    const firstInCourse = categories.find((c) => c.course_id === courseId);
+    setSelectedCategoryId(firstInCourse?.id ?? null);
+  };
 
   const pendingItems = useMemo(
     () => items.filter((i) => i.status === "pending"),
@@ -449,25 +484,75 @@ export function OrderPanel({
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Menu Section */}
-        <div className="lg:col-span-2 space-y-4">
-          {/* Category Tabs */}
-          <ScrollArea className="w-full">
-            <div className="flex gap-2 pb-2">
-              {assignedCategories.map((category) => (
-                <Button
-                  key={category.id}
-                  variant={
-                    activeCategory === category.id ? "default" : "outline"
-                  }
-                  size="sm"
-                  onClick={() => setSelectedCategoryId(category.id)}
-                  className="shrink-0"
-                >
-                  {category.name}
-                </Button>
-              ))}
+        <div className="lg:col-span-2 space-y-3">
+          {/* Course tabs (top-level) */}
+          {coursesWithCategories.length === 0 ? (
+            <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+              Δεν υπάρχουν κατηγορίες ανατεθειμένες σε πιάτο. Πήγαινε στις{" "}
+              <span className="font-medium">
+                Ρυθμίσεις → Πιάτα & Κατηγορίες
+              </span>{" "}
+              για να τα οργανώσεις.
             </div>
-          </ScrollArea>
+          ) : (
+            <>
+              <ScrollArea className="w-full">
+                <div className="flex gap-2 pb-2">
+                  {coursesWithCategories.map((course) => {
+                    const isActive = activeCourseId === course.id;
+                    return (
+                      <button
+                        key={course.id}
+                        type="button"
+                        onClick={() => handleCourseChange(course.id)}
+                        className={cn(
+                          "shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition",
+                          isActive
+                            ? "border-transparent text-white shadow-sm"
+                            : "border-border bg-card text-muted-foreground hover:border-primary/50",
+                        )}
+                        style={
+                          isActive && course.color
+                            ? { backgroundColor: course.color }
+                            : isActive
+                              ? {
+                                  backgroundColor: "hsl(var(--primary))",
+                                }
+                              : course.color
+                                ? {
+                                    borderColor: course.color,
+                                    color: course.color,
+                                  }
+                                : {}
+                        }
+                      >
+                        {course.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+
+              {/* Category sub-tabs (within active course) */}
+              <ScrollArea className="w-full">
+                <div className="flex gap-2 pb-2">
+                  {categoriesInCourse.map((category) => (
+                    <Button
+                      key={category.id}
+                      variant={
+                        activeCategory === category.id ? "default" : "outline"
+                      }
+                      size="sm"
+                      onClick={() => setSelectedCategoryId(category.id)}
+                      className="shrink-0"
+                    >
+                      {category.name}
+                    </Button>
+                  ))}
+                </div>
+              </ScrollArea>
+            </>
+          )}
 
           {/* Products Grid */}
           {productsInCategory.length === 0 ? (
