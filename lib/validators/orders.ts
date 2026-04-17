@@ -52,3 +52,9 @@ export const advanceCourseSchema = z.object({
   newActiveCourse: z.number().int().min(1).max(10),
 });
 export type AdvanceCourseInput = z.infer<typeof advanceCourseSchema>;
+
+export const toggleRushSchema = z.object({
+  orderId: z.string().uuid(),
+  isRush: z.boolean(),
+});
+export type ToggleRushInput = z.infer<typeof toggleRushSchema>;

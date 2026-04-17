@@ -1,15 +1,13 @@
 "use client";
 
-import { Minus, Plus, Trash2, MessageSquare } from "lucide-react";
+import { Minus, Plus, X, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { OrderItemWithModifiers } from "@/lib/types/database";
 
 interface OrderItemCardProps {
   item: OrderItemWithModifiers;
-  onIncrement: (itemId: string) => void;
-  onDecrement: (itemId: string) => void;
+  onUpdateQuantity: (itemId: string, quantity: number) => void;
   onRemove: (itemId: string) => void;
   disabled?: boolean;
 }
@@ -21,107 +19,92 @@ function formatPrice(price: number): string {
   }).format(price);
 }
 
-const statusStyles: Record<OrderItemWithModifiers["status"], string> = {
-  pending: "border-border bg-card",
-  preparing: "border-amber-500/40 bg-amber-500/10",
-  ready: "border-emerald-500/40 bg-emerald-500/10",
-  served: "border-border bg-muted/50 opacity-60",
-};
-
-const statusLabels: Record<OrderItemWithModifiers["status"], string> = {
-  pending: "Εκκρεμεί",
-  preparing: "Ετοιμάζεται",
-  ready: "Έτοιμο",
-  served: "Σερβιρίστηκε",
+const statusColors: Record<OrderItemWithModifiers["status"], string> = {
+  pending: "bg-muted",
+  preparing: "bg-amber-500/15 border-amber-500/40",
+  ready: "bg-primary/15 border-primary/40",
+  served: "bg-muted opacity-50",
 };
 
 export function OrderItemCard({
   item,
-  onIncrement,
-  onDecrement,
+  onUpdateQuantity,
   onRemove,
   disabled = false,
 }: OrderItemCardProps) {
   const modifierTotal = item.order_item_modifiers.reduce(
-    (s, m) => s + m.price,
+    (sum, m) => sum + m.price,
     0,
   );
-  const lineTotal = (item.price + modifierTotal) * item.quantity;
-  const isEditable = item.status === "pending" && !disabled;
+  const itemTotal = (item.price + modifierTotal) * item.quantity;
 
   return (
     <div
       className={cn(
-        "flex items-start gap-3 rounded-lg border p-3 transition-colors",
-        statusStyles[item.status],
+        "flex items-center gap-3 rounded-lg border p-3",
+        statusColors[item.status],
       )}
     >
-      <div className="flex-1 min-w-0 space-y-1">
+      <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
-          <p className="font-medium text-sm leading-tight truncate">
-            {item.product_name}
-          </p>
-          <p className="font-semibold text-sm whitespace-nowrap">
-            {formatPrice(lineTotal)}
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-foreground truncate">
+              {item.product_name}
+            </p>
+            {item.order_item_modifiers.length > 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                {item.order_item_modifiers.map((m) => m.name).join(", ")}
+              </p>
+            )}
+            <p className="text-sm text-muted-foreground">
+              {formatPrice(item.price + modifierTotal)} × {item.quantity}
+            </p>
+          </div>
+          <p className="font-semibold text-foreground whitespace-nowrap">
+            {formatPrice(itemTotal)}
           </p>
         </div>
-
-        {item.order_item_modifiers.length > 0 && (
-          <p className="text-xs text-amber-700 dark:text-amber-400">
-            + {item.order_item_modifiers.map((m) => m.name).join(", ")}
-          </p>
-        )}
-
         {item.notes && (
-          <p className="flex items-start gap-1 text-xs text-muted-foreground italic">
-            <MessageSquare className="size-3 mt-0.5 shrink-0" />
-            <span>{item.notes}</span>
-          </p>
+          <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+            <MessageSquare className="size-3" />
+            <span className="truncate">{item.notes}</span>
+          </div>
         )}
-
-        <div className="flex items-center justify-between pt-1">
-          <span className="text-xs text-muted-foreground">
-            {formatPrice(item.price + modifierTotal)} × {item.quantity}
-          </span>
-
-          {isEditable ? (
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="icon"
-                className="size-7"
-                onClick={() => onDecrement(item.id)}
-                disabled={item.quantity <= 1}
-              >
-                <Minus className="size-3" />
-              </Button>
-              <span className="w-6 text-center text-sm font-medium">
-                {item.quantity}
-              </span>
-              <Button
-                variant="outline"
-                size="icon"
-                className="size-7"
-                onClick={() => onIncrement(item.id)}
-              >
-                <Plus className="size-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-7 text-destructive"
-                onClick={() => onRemove(item.id)}
-              >
-                <Trash2 className="size-3" />
-              </Button>
-            </div>
-          ) : (
-            <Badge variant="outline" className="text-xs">
-              {statusLabels[item.status]}
-            </Badge>
-          )}
-        </div>
       </div>
+
+      {item.status === "pending" && !disabled && (
+        <div className="flex items-center gap-1 shrink-0">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="size-8"
+            onClick={() => {
+              if (item.quantity === 1) {
+                onRemove(item.id);
+              } else {
+                onUpdateQuantity(item.id, item.quantity - 1);
+              }
+            }}
+          >
+            {item.quantity === 1 ? (
+              <X className="size-4" />
+            ) : (
+              <Minus className="size-4" />
+            )}
+          </Button>
+          <span className="w-8 text-center font-medium">{item.quantity}</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="size-8"
+            onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+          >
+            <Plus className="size-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

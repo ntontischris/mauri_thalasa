@@ -146,66 +146,96 @@ export function KitchenDisplay({ initialItems }: KitchenDisplayProps) {
                     </div>
                   </CardHeader>
 
-                  <CardContent className="space-y-2 px-4 pb-3">
-                    {orderItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center gap-2 rounded-md bg-muted/50 p-2"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] px-1"
+                  <CardContent className="space-y-3 px-4 pb-3">
+                    {(() => {
+                      // Group items by course
+                      const byCourse = new Map<number, KitchenItem[]>();
+                      for (const item of orderItems) {
+                        const list = byCourse.get(item.course) ?? [];
+                        list.push(item);
+                        byCourse.set(item.course, list);
+                      }
+                      const courses = Array.from(byCourse.entries()).sort(
+                        ([a], [b]) => a - b,
+                      );
+                      const showCourseLabels =
+                        courses.length > 1 || (courses[0] && courses[0][0] > 1);
+
+                      return courses.map(([courseNumber, courseItems]) => (
+                        <div key={courseNumber} className="space-y-1.5">
+                          {showCourseLabels && (
+                            <div className="flex items-center gap-2 pt-1">
+                              <div className="h-px flex-1 bg-primary/30" />
+                              <span className="text-xs font-bold uppercase tracking-wider text-primary">
+                                Πιάτο {courseNumber}
+                              </span>
+                              <div className="h-px flex-1 bg-primary/30" />
+                            </div>
+                          )}
+                          {courseItems.map((item) => (
+                            <div
+                              key={item.id}
+                              className="flex items-center gap-2 rounded-md bg-muted/50 p-2"
                             >
-                              ×{item.quantity}
-                            </Badge>
-                            <span className="text-sm font-medium truncate">
-                              {item.product_name}
-                            </span>
-                          </div>
-                          {item.order_item_modifiers.length > 0 && (
-                            <p className="text-xs text-amber-600 ml-7">
-                              {item.order_item_modifiers
-                                .map((m) => m.name)
-                                .join(", ")}
-                            </p>
-                          )}
-                          {item.notes && (
-                            <p className="text-xs text-muted-foreground italic ml-7">
-                              {item.notes}
-                            </p>
-                          )}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] px-1"
+                                  >
+                                    ×{item.quantity}
+                                  </Badge>
+                                  <span className="text-sm font-medium truncate">
+                                    {item.product_name}
+                                  </span>
+                                </div>
+                                {item.order_item_modifiers.length > 0 && (
+                                  <p className="text-xs text-amber-600 ml-7">
+                                    {item.order_item_modifiers
+                                      .map((m) => m.name)
+                                      .join(", ")}
+                                  </p>
+                                )}
+                                {item.notes && (
+                                  <p className="text-xs text-muted-foreground italic ml-7">
+                                    {item.notes}
+                                  </p>
+                                )}
+                              </div>
+
+                              {item.status === "pending" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="shrink-0"
+                                  onClick={() =>
+                                    handleStatusChange(item.id, "preparing")
+                                  }
+                                  disabled={isPending}
+                                >
+                                  <Flame className="mr-1 size-3" />
+                                  Ξεκίνα
+                                </Button>
+                              )}
+
+                              {item.status === "preparing" && (
+                                <Button
+                                  size="sm"
+                                  className="shrink-0"
+                                  onClick={() =>
+                                    handleStatusChange(item.id, "ready")
+                                  }
+                                  disabled={isPending}
+                                >
+                                  <Check className="mr-1 size-3" />
+                                  Έτοιμο
+                                </Button>
+                              )}
+                            </div>
+                          ))}
                         </div>
-
-                        {item.status === "pending" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="shrink-0"
-                            onClick={() =>
-                              handleStatusChange(item.id, "preparing")
-                            }
-                            disabled={isPending}
-                          >
-                            <Flame className="mr-1 size-3" />
-                            Ξεκίνα
-                          </Button>
-                        )}
-
-                        {item.status === "preparing" && (
-                          <Button
-                            size="sm"
-                            className="shrink-0"
-                            onClick={() => handleStatusChange(item.id, "ready")}
-                            disabled={isPending}
-                          >
-                            <Check className="mr-1 size-3" />
-                            Έτοιμο
-                          </Button>
-                        )}
-                      </div>
-                    ))}
+                      ));
+                    })()}
                   </CardContent>
                 </Card>
               );

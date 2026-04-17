@@ -11,12 +11,14 @@ import {
   completeOrderSchema,
   sendCourseSchema,
   advanceCourseSchema,
+  toggleRushSchema,
   type AddOrderItemInput,
   type UpdateItemQuantityInput,
   type UpdateItemStatusInput,
   type CompleteOrderInput,
   type SendCourseInput,
   type AdvanceCourseInput,
+  type ToggleRushInput,
 } from "@/lib/validators/orders";
 
 interface ActionResult<T = void> {
@@ -381,5 +383,50 @@ export async function advanceCourse(
   }
 
   revalidatePath("/orders");
+  return { success: true };
+}
+
+export async function sendAllPendingToKitchen(
+  orderId: string,
+): Promise<ActionResult<{ count: number }>> {
+  const supabase = await createServerSupabaseClient();
+
+  const { data, error } = await supabase
+    .from("order_items")
+    .update({ status: "preparing" })
+    .eq("order_id", orderId)
+    .eq("status", "pending")
+    .select("id");
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath("/kitchen");
+  revalidatePath("/orders");
+  return { success: true, data: { count: data?.length ?? 0 } };
+}
+
+export async function toggleOrderRush(
+  input: ToggleRushInput,
+): Promise<ActionResult> {
+  const parsed = toggleRushSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.errors[0].message };
+  }
+
+  const supabase = await createServerSupabaseClient();
+
+  const { error } = await supabase
+    .from("orders")
+    .update({ is_rush: parsed.data.isRush })
+    .eq("id", parsed.data.orderId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath("/orders");
+  revalidatePath("/kitchen");
   return { success: true };
 }
