@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ChevronRight,
   AlertTriangle,
@@ -121,13 +121,17 @@ function buildReason(order: ActiveOrderSummary): OrderReason {
 }
 
 export function OrderCard({ order, showWaiter }: OrderCardProps) {
+  const router = useRouter();
   const bucket = classifyOrder(order);
   const reason = buildReason(order);
   const [isPending, startTransition] = useTransition();
   const [servedOptimistic, setServedOptimistic] = useState(false);
 
+  const handleCardClick = () => {
+    router.push(`/orders/${order.table_id}`);
+  };
+
   const handleServe = (e: React.MouseEvent) => {
-    e.preventDefault();
     e.stopPropagation();
     setServedOptimistic(true);
     startTransition(async () => {
@@ -161,10 +165,10 @@ export function OrderCard({ order, showWaiter }: OrderCardProps) {
   };
 
   return (
-    <Link href={`/orders/${order.table_id}`} className="block">
+    <div role="button" tabIndex={0} onClick={handleCardClick}>
       <Card
         className={cn(
-          "transition hover:border-primary/60 hover:shadow-md",
+          "cursor-pointer transition hover:border-primary/60 hover:shadow-md",
           bucket === "attention" && "border-red-500/40",
           order.is_rush && "ring-1 ring-red-500",
         )}
@@ -235,7 +239,7 @@ export function OrderCard({ order, showWaiter }: OrderCardProps) {
           </div>
         </CardContent>
       </Card>
-    </Link>
+    </div>
   );
 }
 
