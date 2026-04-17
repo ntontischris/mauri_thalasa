@@ -33,7 +33,6 @@ export async function getActiveOrderSummaries(options?: {
     .from("orders")
     .select(
       `id, table_id, table_number, is_rush, created_by, created_at, total,
-       tables!inner(status),
        order_items(id, status, price, quantity, created_at,
          order_item_modifiers(price))`,
     )
@@ -50,7 +49,22 @@ export async function getActiveOrderSummaries(options?: {
     throw new Error(`Failed to fetch active orders: ${error.message}`);
   }
 
-  return (data ?? []).map((row) => {
+  const rows = data ?? [];
+  // Fetch table statuses in a separate query to avoid PostgREST ambiguity
+  // (tables.current_order_id → orders.id creates a second relationship).
+  const tableIds = Array.from(new Set(rows.map((r) => r.table_id)));
+  const tableStatusMap = new Map<string, TableStatus>();
+  if (tableIds.length > 0) {
+    const { data: tablesData } = await supabase
+      .from("tables")
+      .select("id, status")
+      .in("id", tableIds);
+    for (const t of tablesData ?? []) {
+      tableStatusMap.set(t.id, t.status as TableStatus);
+    }
+  }
+
+  return rows.map((row) => {
     const items = (row.order_items ?? []) as Array<{
       id: string;
       status: "pending" | "preparing" | "ready" | "served";
@@ -83,14 +97,11 @@ export async function getActiveOrderSummaries(options?: {
       }
     }
 
-    const tableStatus =
-      (row.tables as unknown as { status: TableStatus })?.status ?? "occupied";
-
     return {
       id: row.id,
       table_id: row.table_id,
       table_number: row.table_number,
-      table_status: tableStatus,
+      table_status: tableStatusMap.get(row.table_id) ?? "occupied",
       is_rush: row.is_rush,
       created_by: row.created_by,
       created_at: row.created_at,
