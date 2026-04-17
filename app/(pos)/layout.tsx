@@ -12,6 +12,9 @@ import { CurrentTime } from "@/components/pos/current-time";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
+// Note: role-based route guarding lives in the middleware
+// (lib/supabase/middleware.ts) so redirects happen before the page renders.
+
 export default async function POSLayout({
   children,
 }: {

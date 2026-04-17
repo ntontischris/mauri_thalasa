@@ -1,9 +1,17 @@
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getProducts } from "@/lib/queries/products";
 import { getCategories } from "@/lib/queries/categories";
 import { getCourses } from "@/lib/queries/courses";
 import { MenuList } from "@/components/pos/menu-list";
+import type { StaffRole } from "@/lib/auth/roles";
 
 export default async function MenuPage() {
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const role = (user?.user_metadata?.role as StaffRole) ?? "waiter";
+
   const [products, categories, courses] = await Promise.all([
     getProducts(),
     getCategories(),
@@ -22,6 +30,7 @@ export default async function MenuPage() {
         initialProducts={products}
         initialCategories={categories}
         initialCourses={courses}
+        canEdit={role === "manager"}
       />
     </div>
   );

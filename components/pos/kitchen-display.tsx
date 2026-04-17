@@ -16,12 +16,14 @@ import type {
   DbCourse,
 } from "@/lib/types/database";
 
+type StationFilter = StationType | "all";
+
 interface KitchenDisplayProps {
   initialItems: KitchenItem[];
   courses?: DbCourse[];
+  defaultStation?: StationFilter;
+  allowedStations?: StationFilter[] | null;
 }
-
-type StationFilter = StationType | "all";
 
 const stationLabels: Record<StationType, string> = {
   hot: "Κουζίνα",
@@ -53,11 +55,13 @@ function formatTimer(createdAt: string): string {
 export function KitchenDisplay({
   initialItems,
   courses = [],
+  defaultStation = "all",
+  allowedStations,
 }: KitchenDisplayProps) {
   const courseBySortOrder = new Map<number, DbCourse>();
   for (const c of courses) courseBySortOrder.set(c.sort_order, c);
   const items = useRealtimeKitchen(initialItems);
-  const [station, setStation] = useState<StationFilter>("all");
+  const [station, setStation] = useState<StationFilter>(defaultStation);
   const [isPending, startTransition] = useTransition();
   const [, setTick] = useState(0);
 
@@ -112,12 +116,16 @@ export function KitchenDisplay({
         onValueChange={(v) => setStation(v as StationFilter)}
       >
         <TabsList>
-          <TabsTrigger value="all">Όλα ({stationCounts.all})</TabsTrigger>
-          {(Object.keys(stationLabels) as StationType[]).map((s) => (
-            <TabsTrigger key={s} value={s}>
-              {stationLabels[s]} ({stationCounts[s]})
-            </TabsTrigger>
-          ))}
+          {(!allowedStations || allowedStations.includes("all")) && (
+            <TabsTrigger value="all">Όλα ({stationCounts.all})</TabsTrigger>
+          )}
+          {(Object.keys(stationLabels) as StationType[])
+            .filter((s) => !allowedStations || allowedStations.includes(s))
+            .map((s) => (
+              <TabsTrigger key={s} value={s}>
+                {stationLabels[s]} ({stationCounts[s]})
+              </TabsTrigger>
+            ))}
         </TabsList>
       </Tabs>
 

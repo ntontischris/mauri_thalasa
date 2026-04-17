@@ -1,5 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+import {
+  ALLOWED_PATHS_BY_ROLE,
+  canAccessPath,
+  getDefaultRouteForRole,
+  type StaffRole,
+} from "@/lib/auth/roles";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -29,9 +35,9 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const pathname = request.nextUrl.pathname;
   const isPublicRoute =
-    request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/booking");
+    pathname.startsWith("/login") || pathname.startsWith("/booking");
 
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
@@ -39,10 +45,24 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && request.nextUrl.pathname.startsWith("/login")) {
+  if (user && pathname.startsWith("/login")) {
     const url = request.nextUrl.clone();
     url.pathname = "/tables";
     return NextResponse.redirect(url);
+  }
+
+  // Role-based route guard — non-managers are bounced off restricted paths
+  if (user && !isPublicRoute) {
+    const role =
+      (user.user_metadata?.role as StaffRole | undefined) ?? "waiter";
+    if (role !== "manager") {
+      const allowed = ALLOWED_PATHS_BY_ROLE[role] ?? [];
+      if (allowed.length > 0 && !canAccessPath(role, pathname, allowed)) {
+        const url = request.nextUrl.clone();
+        url.pathname = getDefaultRouteForRole(role);
+        return NextResponse.redirect(url);
+      }
+    }
   }
 
   return supabaseResponse;

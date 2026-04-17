@@ -23,6 +23,7 @@ interface MenuListProps {
   initialProducts: DbProduct[];
   initialCategories: DbCategory[];
   initialCourses: DbCourse[];
+  canEdit?: boolean;
 }
 
 function formatPrice(price: number): string {
@@ -45,6 +46,7 @@ export function MenuList({
   initialProducts,
   initialCategories,
   initialCourses,
+  canEdit = false,
 }: MenuListProps) {
   const [products, setProducts] = useState<DbProduct[]>(initialProducts);
   const [categories, setCategories] = useState<DbCategory[]>(initialCategories);
@@ -206,22 +208,29 @@ export function MenuList({
           />
         </div>
 
-        <Button onClick={openCreateProduct} disabled={categories.length === 0}>
-          <Plus className="mr-1 size-4" />
-          Νέο Προϊόν
-        </Button>
+        {canEdit && (
+          <>
+            <Button
+              onClick={openCreateProduct}
+              disabled={categories.length === 0}
+            >
+              <Plus className="mr-1 size-4" />
+              Νέο Προϊόν
+            </Button>
 
-        <Button variant="outline" onClick={handleNewCategory}>
-          <Plus className="mr-1 size-4" />
-          Κατηγορία
-        </Button>
+            <Button variant="outline" onClick={handleNewCategory}>
+              <Plus className="mr-1 size-4" />
+              Κατηγορία
+            </Button>
 
-        <Button variant="outline" asChild>
-          <Link href="/settings/courses">
-            <Settings className="mr-1 size-4" />
-            Πιάτα
-          </Link>
-        </Button>
+            <Button variant="outline" asChild>
+              <Link href="/settings/courses">
+                <Settings className="mr-1 size-4" />
+                Πιάτα
+              </Link>
+            </Button>
+          </>
+        )}
       </div>
 
       {unassignedCount > 0 && (
@@ -346,27 +355,29 @@ export function MenuList({
                       </p>
                     )}
                   </div>
-                  <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-7"
-                      onClick={() => openEditProduct(product)}
-                      aria-label="Επεξεργασία"
-                    >
-                      <Pencil className="size-3.5" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-7 text-destructive hover:text-destructive"
-                      onClick={() => handleDeleteProduct(product)}
-                      disabled={isPending}
-                      aria-label="Διαγραφή"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  </div>
+                  {canEdit && (
+                    <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-7"
+                        onClick={() => openEditProduct(product)}
+                        aria-label="Επεξεργασία"
+                      >
+                        <Pencil className="size-3.5" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-7 text-destructive hover:text-destructive"
+                        onClick={() => handleDeleteProduct(product)}
+                        disabled={isPending}
+                        aria-label="Διαγραφή"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-3 flex items-center justify-between gap-2">
@@ -387,10 +398,12 @@ export function MenuList({
                   <span className="text-xs text-muted-foreground">
                     {product.available ? "Διαθέσιμο" : "Εξαντλήθηκε"}
                   </span>
-                  <Switch
-                    checked={product.available}
-                    onCheckedChange={() => handleToggleAvailable(product)}
-                  />
+                  {canEdit && (
+                    <Switch
+                      checked={product.available}
+                      onCheckedChange={() => handleToggleAvailable(product)}
+                    />
+                  )}
                 </div>
               </CardContent>
             </Card>
