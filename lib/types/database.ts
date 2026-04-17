@@ -25,6 +25,7 @@ export interface DbCategory {
   name: string;
   sort_order: number;
   course_id: string | null;
+  default_station: "hot" | "cold" | "bar" | "dessert" | null;
   legacy_id: number | null;
   source: string;
   metadata: Record<string, unknown>;

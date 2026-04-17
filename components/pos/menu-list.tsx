@@ -168,6 +168,7 @@ export function MenuList({
           name: trimmed,
           sort_order: categories.length + 1,
           course_id: null,
+          default_station: null,
           legacy_id: null,
           source: "manual",
           metadata: {},

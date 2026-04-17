@@ -69,15 +69,31 @@ export function ProductFormSheet({
       setVatRate(String(product.vat_rate));
       setAvailable(product.available);
     } else {
+      const initialCategoryId = defaultCategoryId ?? categories[0]?.id ?? "";
+      const initialCategory = categories.find(
+        (c) => c.id === initialCategoryId,
+      );
       setName("");
       setDescription("");
       setPrice("");
-      setCategoryId(defaultCategoryId ?? categories[0]?.id ?? "");
-      setStation("hot");
+      setCategoryId(initialCategoryId);
+      setStation(initialCategory?.default_station ?? "hot");
       setVatRate("24");
       setAvailable(true);
     }
   }, [open, product, defaultCategoryId, categories]);
+
+  // When the user picks a different category, follow its default station
+  // (only on create, to avoid surprising edits of existing products).
+  const handleCategoryChange = (id: string) => {
+    setCategoryId(id);
+    if (!product) {
+      const cat = categories.find((c) => c.id === id);
+      if (cat?.default_station) {
+        setStation(cat.default_station);
+      }
+    }
+  };
 
   const handleSave = () => {
     const priceNum = parseFloat(price);
@@ -185,7 +201,7 @@ export function ProductFormSheet({
 
           <div className="space-y-2">
             <Label>Κατηγορία *</Label>
-            <Select value={categoryId} onValueChange={setCategoryId}>
+            <Select value={categoryId} onValueChange={handleCategoryChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Επίλεξε..." />
               </SelectTrigger>
