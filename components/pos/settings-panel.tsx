@@ -8,11 +8,11 @@ import {
   Palette,
   Bell,
   Printer,
-  Shield,
   Database,
   Wifi,
   Globe,
   UtensilsCrossed,
+  UserCog,
   type LucideIcon,
 } from "lucide-react";
 
@@ -29,6 +29,12 @@ const settingsSections: SettingsSection[] = [
     title: "Πιάτα & Κατηγορίες",
     desc: "Ομαδοποίηση κατηγοριών σε πιάτα σερβιρίσματος",
     href: "/settings/courses",
+  },
+  {
+    icon: UserCog,
+    title: "Προσωπικό & Ρόλοι",
+    desc: "Δημιουργία σερβιτόρων, σεφ, μπαρμαν με PIN σύνδεσης",
+    href: "/staff",
   },
   {
     icon: Store,
@@ -49,11 +55,6 @@ const settingsSections: SettingsSection[] = [
     icon: Printer,
     title: "Εκτυπωτές",
     desc: "Κουζίνα, μπαρ, ταμείο, αποδείξεις",
-  },
-  {
-    icon: Shield,
-    title: "Ρόλοι & Δικαιώματα",
-    desc: "Πρόσβαση ανά ρόλο (σερβιτόρος, σεφ, μάνατζερ)",
   },
   {
     icon: Database,

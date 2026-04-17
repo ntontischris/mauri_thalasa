@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { ensureStaffAccount } from "@/lib/actions/auth";
 import {
   createStaffSchema,
   updateStaffSchema,
@@ -31,6 +32,23 @@ export async function createStaffMember(
     .single();
   if (error)
     return { success: false, error: `Αποτυχία δημιουργίας: ${error.message}` };
+
+  // Auto-provision auth account so the new member can log in with their PIN
+  const auth = await ensureStaffAccount(
+    data.id,
+    parsed.data.name,
+    parsed.data.role,
+    parsed.data.pin,
+  );
+  if (!auth.success) {
+    // Roll back the staff row so we don't leave an orphan without login
+    await supabase.from("staff_members").delete().eq("id", data.id);
+    return {
+      success: false,
+      error: `Αποτυχία σύνδεσης λογαριασμού: ${auth.error}`,
+    };
+  }
+
   revalidatePath("/staff");
   return { success: true, data: { id: data.id } };
 }
@@ -70,16 +88,14 @@ export async function saveShift(
   if (!parsed.success)
     return { success: false, error: parsed.error.errors[0].message };
   const supabase = await createServerSupabaseClient();
-  const { error } = await supabase
-    .from("shifts")
-    .upsert(
-      {
-        staff_id: parsed.data.staff_id,
-        date: parsed.data.date,
-        type: parsed.data.type,
-      },
-      { onConflict: "staff_id,date" },
-    );
+  const { error } = await supabase.from("shifts").upsert(
+    {
+      staff_id: parsed.data.staff_id,
+      date: parsed.data.date,
+      type: parsed.data.type,
+    },
+    { onConflict: "staff_id,date" },
+  );
   if (error) return { success: false, error: error.message };
   revalidatePath("/staff");
   return { success: true };

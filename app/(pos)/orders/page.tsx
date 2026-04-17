@@ -24,7 +24,7 @@ export default async function OrdersPage() {
     const [orders, stats, staffRes] = await Promise.all([
       getActiveOrderSummaries(),
       getDailyOrderStats(),
-      supabase.from("staff").select("id, name").eq("is_active", true),
+      supabase.from("staff_members").select("id, name").eq("is_active", true),
     ]);
 
     const waiterNames: Record<string, string> = {};
