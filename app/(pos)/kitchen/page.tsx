@@ -1,8 +1,9 @@
 import { getKitchenItems } from "@/lib/queries/orders";
+import { getCourses } from "@/lib/queries/courses";
 import { KitchenDisplay } from "@/components/pos/kitchen-display";
 
 export default async function KitchenPage() {
-  const items = await getKitchenItems();
+  const [items, courses] = await Promise.all([getKitchenItems(), getCourses()]);
 
   return (
     <div className="space-y-4">
@@ -14,7 +15,7 @@ export default async function KitchenPage() {
           {items.filter((i) => i.status === "preparing").length} ετοιμάζονται
         </p>
       </div>
-      <KitchenDisplay initialItems={items} />
+      <KitchenDisplay initialItems={items} courses={courses} />
     </div>
   );
 }

@@ -13,10 +13,12 @@ import type {
   KitchenItem,
   StationType,
   OrderItemStatus,
+  DbCourse,
 } from "@/lib/types/database";
 
 interface KitchenDisplayProps {
   initialItems: KitchenItem[];
+  courses?: DbCourse[];
 }
 
 type StationFilter = StationType | "all";
@@ -48,7 +50,12 @@ function formatTimer(createdAt: string): string {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
-export function KitchenDisplay({ initialItems }: KitchenDisplayProps) {
+export function KitchenDisplay({
+  initialItems,
+  courses = [],
+}: KitchenDisplayProps) {
+  const courseBySortOrder = new Map<number, DbCourse>();
+  for (const c of courses) courseBySortOrder.set(c.sort_order, c);
   const items = useRealtimeKitchen(initialItems);
   const [station, setStation] = useState<StationFilter>("all");
   const [isPending, startTransition] = useTransition();
@@ -155,86 +162,113 @@ export function KitchenDisplay({ initialItems }: KitchenDisplayProps) {
                         list.push(item);
                         byCourse.set(item.course, list);
                       }
-                      const courses = Array.from(byCourse.entries()).sort(
+                      const courseGroups = Array.from(byCourse.entries()).sort(
                         ([a], [b]) => a - b,
                       );
                       const showCourseLabels =
-                        courses.length > 1 || (courses[0] && courses[0][0] > 1);
+                        courseGroups.length > 1 ||
+                        (courseGroups[0] && courseGroups[0][0] > 1);
 
-                      return courses.map(([courseNumber, courseItems]) => (
-                        <div key={courseNumber} className="space-y-1.5">
-                          {showCourseLabels && (
-                            <div className="flex items-center gap-2 pt-1">
-                              <div className="h-px flex-1 bg-primary/30" />
-                              <span className="text-xs font-bold uppercase tracking-wider text-primary">
-                                Πιάτο {courseNumber}
-                              </span>
-                              <div className="h-px flex-1 bg-primary/30" />
-                            </div>
-                          )}
-                          {courseItems.map((item) => (
-                            <div
-                              key={item.id}
-                              className="flex items-center gap-2 rounded-md bg-muted/50 p-2"
-                            >
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <Badge
-                                    variant="outline"
-                                    className="text-[10px] px-1"
-                                  >
-                                    ×{item.quantity}
-                                  </Badge>
-                                  <span className="text-sm font-medium truncate">
-                                    {item.product_name}
-                                  </span>
+                      return courseGroups.map(([courseNumber, courseItems]) => {
+                        const course = courseBySortOrder.get(courseNumber);
+                        const courseName =
+                          course?.name ?? `Πιάτο ${courseNumber}`;
+                        const courseColor = course?.color ?? null;
+
+                        return (
+                          <div key={courseNumber} className="space-y-1.5">
+                            {showCourseLabels && (
+                              <div className="flex items-center gap-2 pt-1">
+                                <div
+                                  className="h-px flex-1"
+                                  style={{
+                                    backgroundColor:
+                                      courseColor ??
+                                      "rgb(var(--primary) / 0.3)",
+                                  }}
+                                />
+                                <span
+                                  className="text-xs font-bold uppercase tracking-wider"
+                                  style={{
+                                    color: courseColor ?? undefined,
+                                  }}
+                                >
+                                  {courseName}
+                                </span>
+                                <div
+                                  className="h-px flex-1"
+                                  style={{
+                                    backgroundColor:
+                                      courseColor ??
+                                      "rgb(var(--primary) / 0.3)",
+                                  }}
+                                />
+                              </div>
+                            )}
+                            {courseItems.map((item) => (
+                              <div
+                                key={item.id}
+                                className="flex items-center gap-2 rounded-md bg-muted/50 p-2"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] px-1"
+                                    >
+                                      ×{item.quantity}
+                                    </Badge>
+                                    <span className="text-sm font-medium truncate">
+                                      {item.product_name}
+                                    </span>
+                                  </div>
+                                  {item.order_item_modifiers.length > 0 && (
+                                    <p className="text-xs text-amber-600 ml-7">
+                                      {item.order_item_modifiers
+                                        .map((m) => m.name)
+                                        .join(", ")}
+                                    </p>
+                                  )}
+                                  {item.notes && (
+                                    <p className="text-xs text-muted-foreground italic ml-7">
+                                      {item.notes}
+                                    </p>
+                                  )}
                                 </div>
-                                {item.order_item_modifiers.length > 0 && (
-                                  <p className="text-xs text-amber-600 ml-7">
-                                    {item.order_item_modifiers
-                                      .map((m) => m.name)
-                                      .join(", ")}
-                                  </p>
+
+                                {item.status === "pending" && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="shrink-0"
+                                    onClick={() =>
+                                      handleStatusChange(item.id, "preparing")
+                                    }
+                                    disabled={isPending}
+                                  >
+                                    <Flame className="mr-1 size-3" />
+                                    Ξεκίνα
+                                  </Button>
                                 )}
-                                {item.notes && (
-                                  <p className="text-xs text-muted-foreground italic ml-7">
-                                    {item.notes}
-                                  </p>
+
+                                {item.status === "preparing" && (
+                                  <Button
+                                    size="sm"
+                                    className="shrink-0"
+                                    onClick={() =>
+                                      handleStatusChange(item.id, "ready")
+                                    }
+                                    disabled={isPending}
+                                  >
+                                    <Check className="mr-1 size-3" />
+                                    Έτοιμο
+                                  </Button>
                                 )}
                               </div>
-
-                              {item.status === "pending" && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="shrink-0"
-                                  onClick={() =>
-                                    handleStatusChange(item.id, "preparing")
-                                  }
-                                  disabled={isPending}
-                                >
-                                  <Flame className="mr-1 size-3" />
-                                  Ξεκίνα
-                                </Button>
-                              )}
-
-                              {item.status === "preparing" && (
-                                <Button
-                                  size="sm"
-                                  className="shrink-0"
-                                  onClick={() =>
-                                    handleStatusChange(item.id, "ready")
-                                  }
-                                  disabled={isPending}
-                                >
-                                  <Check className="mr-1 size-3" />
-                                  Έτοιμο
-                                </Button>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      ));
+                            ))}
+                          </div>
+                        );
+                      });
                     })()}
                   </CardContent>
                 </Card>
