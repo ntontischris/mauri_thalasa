@@ -48,6 +48,7 @@ import type {
   DbOrder,
   DbProduct,
   DbCategory,
+  DbCourse,
   DbModifier,
   OrderItemWithModifiers,
 } from "@/lib/types/database";
@@ -58,6 +59,7 @@ interface OrderPanelProps {
   initialItems: OrderItemWithModifiers[];
   products: DbProduct[];
   categories: DbCategory[];
+  courses: DbCourse[];
 }
 
 function formatPrice(price: number): string {
@@ -79,6 +81,7 @@ export function OrderPanel({
   initialItems,
   products,
   categories,
+  courses,
 }: OrderPanelProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -90,7 +93,7 @@ export function OrderPanel({
 
   // Category selection
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
-    categories[0]?.id ?? null,
+    categories.find((c) => c.course_id !== null)?.id ?? null,
   );
 
   // Modifier sheet state
@@ -107,17 +110,46 @@ export function OrderPanel({
   );
   const [loadingModifiers, setLoadingModifiers] = useState(false);
 
-  // Map each product to its default course via its category
-  const courseByCategoryId = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const c of categories) map.set(c.id, c.default_course);
+  // Map category → course sort_order (serving sequence).
+  // Categories without a course_id are excluded from the POS menu.
+  const courseBySortOrder = useMemo(() => {
+    const map = new Map<number, DbCourse>();
+    for (const c of courses) map.set(c.sort_order, c);
     return map;
-  }, [categories]);
+  }, [courses]);
 
-  const getCourseForProduct = (product: DbProduct): number =>
-    courseByCategoryId.get(product.category_id) ?? 1;
+  const courseByCategoryId = useMemo(() => {
+    const map = new Map<string, DbCourse>();
+    for (const cat of categories) {
+      if (!cat.course_id) continue;
+      const course = courses.find((c) => c.id === cat.course_id);
+      if (course) map.set(cat.id, course);
+    }
+    return map;
+  }, [categories, courses]);
 
-  const activeCategory = selectedCategoryId ?? categories[0]?.id;
+  const getCourseForProduct = (product: DbProduct): number => {
+    const course = courseByCategoryId.get(product.category_id);
+    return course?.sort_order ?? 1;
+  };
+
+  const getCourseDisplay = (
+    sortOrder: number,
+  ): { name: string; color: string | null } => {
+    const course = courseBySortOrder.get(sortOrder);
+    return {
+      name: course?.name ?? `Πιάτο ${sortOrder}`,
+      color: course?.color ?? null,
+    };
+  };
+
+  // Hide categories not assigned to a course from the tab strip.
+  const assignedCategories = useMemo(
+    () => categories.filter((c) => c.course_id !== null),
+    [categories],
+  );
+
+  const activeCategory = selectedCategoryId ?? assignedCategories[0]?.id;
   const productsInCategory = useMemo(
     () =>
       activeCategory
@@ -351,22 +383,29 @@ export function OrderPanel({
     groups: [number, OrderItemWithModifiers[]][],
     disabled: boolean,
   ) =>
-    groups.map(([course, courseItems], groupIndex) => (
-      <div key={course} className="space-y-2">
-        {(groups.length > 1 || course > 1) && groupIndex >= 0 && (
-          <CourseSeparator courseNumber={course} />
-        )}
-        {courseItems.map((item) => (
-          <OrderItemCard
-            key={item.id}
-            item={item}
-            onUpdateQuantity={handleUpdateQuantity}
-            onRemove={handleRemoveItem}
-            disabled={disabled}
-          />
-        ))}
-      </div>
-    ));
+    groups.map(([course, courseItems], groupIndex) => {
+      const display = getCourseDisplay(course);
+      return (
+        <div key={course} className="space-y-2">
+          {(groups.length > 1 || course > 1) && groupIndex >= 0 && (
+            <CourseSeparator
+              courseNumber={course}
+              name={display.name}
+              color={display.color}
+            />
+          )}
+          {courseItems.map((item) => (
+            <OrderItemCard
+              key={item.id}
+              item={item}
+              onUpdateQuantity={handleUpdateQuantity}
+              onRemove={handleRemoveItem}
+              disabled={disabled}
+            />
+          ))}
+        </div>
+      );
+    });
 
   return (
     <div className="space-y-6">
@@ -414,7 +453,7 @@ export function OrderPanel({
           {/* Category Tabs */}
           <ScrollArea className="w-full">
             <div className="flex gap-2 pb-2">
-              {categories.map((category) => (
+              {assignedCategories.map((category) => (
                 <Button
                   key={category.id}
                   variant={

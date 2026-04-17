@@ -24,10 +24,19 @@ export interface DbCategory {
   id: string;
   name: string;
   sort_order: number;
-  default_course: number;
+  course_id: string | null;
   legacy_id: number | null;
   source: string;
   metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DbCourse {
+  id: string;
+  name: string;
+  sort_order: number;
+  color: string | null;
   created_at: string;
   updated_at: string;
 }

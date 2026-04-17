@@ -3,6 +3,7 @@ import { getTableById } from "@/lib/queries/tables";
 import { getActiveOrderByTable, getOrderItems } from "@/lib/queries/orders";
 import { getProducts } from "@/lib/queries/products";
 import { getCategories } from "@/lib/queries/categories";
+import { getCourses } from "@/lib/queries/courses";
 import { OrderPanel } from "@/components/pos/order-panel";
 
 interface OrderPageProps {
@@ -15,10 +16,11 @@ export default async function OrderPage({ params }: OrderPageProps) {
   const table = await getTableById(tableId);
   if (!table) notFound();
 
-  const [order, products, categories] = await Promise.all([
+  const [order, products, categories, courses] = await Promise.all([
     getActiveOrderByTable(tableId),
     getProducts(),
     getCategories(),
+    getCourses(),
   ]);
 
   const items = order ? await getOrderItems(order.id) : [];
@@ -30,6 +32,7 @@ export default async function OrderPage({ params }: OrderPageProps) {
       initialItems={items}
       products={products.filter((p) => p.available)}
       categories={categories}
+      courses={courses}
     />
   );
 }
