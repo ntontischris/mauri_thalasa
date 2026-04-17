@@ -1,0 +1,3 @@
+components/pos/customers-panel.tsx
+components/pos/customer-form-sheet.tsx
+app/(pos)/customers/page.tsx

@@ -6,7 +6,7 @@ export async function getCustomers(search?: string): Promise<DbCustomer[]> {
   let query = supabase
     .from("customers")
     .select(
-      "id, name, phone, email, birthday, notes, is_vip, allergies, tags, loyalty_points, stamp_count, afm, address, contact, billing, is_active, discount, legacy_id, source, metadata, created_at, updated_at",
+      "id, name, phone, email, birthday, notes, is_vip, allergies, tags, loyalty_points, stamp_count, afm, address, contact, billing, is_active, discount, legacy_id, source, metadata, last_visit_at, total_visits, total_spent, marketing_opt_in, created_at, updated_at",
     )
     .eq("is_active", true)
     .order("name", { ascending: true });
@@ -25,7 +25,7 @@ export async function getCustomerById(id: string): Promise<DbCustomer | null> {
   const { data, error } = await supabase
     .from("customers")
     .select(
-      "id, name, phone, email, birthday, notes, is_vip, allergies, tags, loyalty_points, stamp_count, afm, address, contact, billing, is_active, discount, legacy_id, source, metadata, created_at, updated_at",
+      "id, name, phone, email, birthday, notes, is_vip, allergies, tags, loyalty_points, stamp_count, afm, address, contact, billing, is_active, discount, legacy_id, source, metadata, last_visit_at, total_visits, total_spent, marketing_opt_in, created_at, updated_at",
     )
     .eq("id", id)
     .single();

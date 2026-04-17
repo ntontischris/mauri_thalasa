@@ -1,256 +1,193 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useMemo, useState } from "react";
+import { Plus, Search, Star, Cake, AlertTriangle, Users, Phone } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Plus, Search, Star, Phone, Mail, Trash2 } from "lucide-react";
-import { toast } from "sonner";
-import {
-  createCustomer,
-  updateCustomer,
-  deleteCustomer,
-} from "@/lib/actions/customers";
+import { cn } from "@/lib/utils";
+import { CustomerFormSheet } from "./customer-form-sheet";
+import { CustomerDetailDrawer } from "./customer-detail-drawer";
 import type { DbCustomer } from "@/lib/types/database";
 
 interface CustomersPanelProps {
   initialCustomers: DbCustomer[];
+  birthdays: DbCustomer[];
 }
 
-export function CustomersPanel({ initialCustomers }: CustomersPanelProps) {
-  const [customers, setCustomers] = useState(initialCustomers);
+type Filter = "all" | "vip" | "allergies" | "regulars";
+
+function formatPrice(n: number): string {
+  return new Intl.NumberFormat("el-GR", { style: "currency", currency: "EUR" }).format(n);
+}
+
+function nextBirthdayDays(birthday: string): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const b = new Date(birthday);
+  const next = new Date(today.getFullYear(), b.getMonth(), b.getDate());
+  if (next < today) next.setFullYear(today.getFullYear() + 1);
+  return Math.floor((next.getTime() - today.getTime()) / 86400000);
+}
+
+export function CustomersPanel({ initialCustomers, birthdays }: CustomersPanelProps) {
+  const [customers, setCustomers] = useState<DbCustomer[]>(initialCustomers);
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<DbCustomer | null>(null);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [filter, setFilter] = useState<Filter>("all");
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<DbCustomer | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
-  const filtered = customers.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.phone?.includes(search) ||
-      c.afm?.includes(search),
-  );
-
-  const handleCreate = async (formData: FormData) => {
-    const result = await createCustomer({
-      name: formData.get("name") as string,
-      phone: (formData.get("phone") as string) || undefined,
-      email: (formData.get("email") as string) || undefined,
-      afm: (formData.get("afm") as string) || undefined,
-      is_vip: formData.get("is_vip") === "on",
-      discount: Number(formData.get("discount")) || 0,
-      notes: (formData.get("notes") as string) || undefined,
-      allergies: [],
-      tags: [],
-    });
-
-    if (result.success) {
-      toast.success("Ο πελάτης δημιουργήθηκε");
-      setIsFormOpen(false);
-      window.location.reload();
-    } else {
-      toast.error(result.error);
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    let list = customers;
+    if (filter === "vip") list = list.filter((c) => c.is_vip);
+    else if (filter === "allergies") list = list.filter((c) => c.allergies.length > 0);
+    else if (filter === "regulars") list = list.filter((c) => c.total_visits >= 5);
+    if (term) {
+      list = list.filter(
+        (c) => c.name.toLowerCase().includes(term) || (c.phone ?? "").includes(term) || (c.email ?? "").toLowerCase().includes(term),
+      );
     }
-  };
+    return list.sort((a, b) => a.name.localeCompare(b.name, "el"));
+  }, [customers, search, filter]);
 
-  const handleDelete = (id: string) => {
-    startTransition(async () => {
-      const result = await deleteCustomer(id);
-      if (result.success) {
-        setCustomers((prev) => prev.filter((c) => c.id !== id));
-        setSelected(null);
-        toast.success("Ο πελάτης διαγράφηκε");
-      } else {
-        toast.error(result.error);
-      }
-    });
+  const counts = useMemo(() => ({
+    all: customers.length,
+    vip: customers.filter((c) => c.is_vip).length,
+    allergies: customers.filter((c) => c.allergies.length > 0).length,
+    regulars: customers.filter((c) => c.total_visits >= 5).length,
+  }), [customers]);
+
+  const handleCreate = () => { setEditing(null); setFormOpen(true); };
+  const handleEditFromDrawer = () => {
+    const c = customers.find((x) => x.id === detailId);
+    if (c) { setEditing(c); setDetailId(null); setFormOpen(true); }
   };
+  const handleDeleted = (id: string) => setCustomers((prev) => prev.filter((c) => c.id !== id));
 
   return (
-    <div className="flex h-[calc(100vh-10rem)] gap-4">
-      {/* Left: Customer list */}
-      <div className="w-full max-w-md space-y-3">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
-            <Input
-              placeholder="Αναζήτηση..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-            <DialogTrigger asChild>
-              <Button size="icon">
-                <Plus className="size-4" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Νέος Πελάτης</DialogTitle>
-              </DialogHeader>
-              <form action={handleCreate} className="space-y-3">
-                <div>
-                  <Label htmlFor="name">Όνομα *</Label>
-                  <Input id="name" name="name" required />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="phone">Τηλέφωνο</Label>
-                    <Input id="phone" name="phone" />
-                  </div>
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" name="email" type="email" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="afm">ΑΦΜ</Label>
-                    <Input id="afm" name="afm" />
-                  </div>
-                  <div>
-                    <Label htmlFor="discount">Έκπτωση %</Label>
-                    <Input
-                      id="discount"
-                      name="discount"
-                      type="number"
-                      min="0"
-                      max="100"
-                      defaultValue="0"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="notes">Σημειώσεις</Label>
-                  <Input id="notes" name="notes" />
-                </div>
-                <Button type="submit" className="w-full">
-                  Δημιουργία
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[220px]">
+          <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+          <Input placeholder="Αναζήτηση με όνομα ή τηλέφωνο..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
-
-        <ScrollArea className="h-[calc(100vh-14rem)]">
-          <div className="space-y-1">
-            {filtered.map((customer) => (
-              <button
-                key={customer.id}
-                onClick={() => setSelected(customer)}
-                className={`w-full rounded-md border p-3 text-left transition-colors hover:bg-accent ${
-                  selected?.id === customer.id ? "border-primary bg-accent" : ""
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{customer.name}</span>
-                  {customer.is_vip && (
-                    <Star className="size-4 fill-amber-400 text-amber-400" />
-                  )}
-                </div>
-                {customer.phone && (
-                  <span className="text-xs text-muted-foreground">
-                    {customer.phone}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </ScrollArea>
+        <Button onClick={handleCreate}><Plus className="mr-1 size-4" />Νέος Πελάτης</Button>
       </div>
 
-      {/* Right: Customer detail */}
-      <div className="flex-1">
-        {selected ? (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                {selected.name}
-                {selected.is_vip && <Badge className="bg-amber-500">VIP</Badge>}
-              </CardTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-destructive"
-                onClick={() => handleDelete(selected.id)}
-                disabled={isPending}
-              >
-                <Trash2 className="size-4" />
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {selected.phone && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Phone className="size-4 text-muted-foreground" />
-                  {selected.phone}
-                </div>
-              )}
-              {selected.email && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Mail className="size-4 text-muted-foreground" />
-                  {selected.email}
-                </div>
-              )}
-              {selected.afm && (
-                <div className="text-sm">
-                  <span className="text-muted-foreground">ΑΦΜ:</span>{" "}
-                  {selected.afm}
-                </div>
-              )}
-              {selected.discount > 0 && (
-                <Badge variant="outline">Έκπτωση {selected.discount}%</Badge>
-              )}
-              <div className="flex gap-2">
-                <Badge variant="secondary">
-                  Πόντοι: {selected.loyalty_points}
-                </Badge>
-                <Badge variant="secondary">
-                  Stamps: {selected.stamp_count}
-                </Badge>
-              </div>
-              {selected.allergies.length > 0 && (
-                <div>
-                  <span className="text-sm text-muted-foreground">
-                    Αλλεργίες:
-                  </span>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {selected.allergies.map((a) => (
-                      <Badge key={a} variant="destructive" className="text-xs">
-                        {a}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {selected.notes && (
-                <div className="text-sm">
-                  <span className="text-muted-foreground">Σημειώσεις:</span>{" "}
-                  {selected.notes}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <p>Επιλέξτε πελάτη</p>
-            </CardContent>
-          </Card>
-        )}
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+        <Card><CardContent className="flex items-center gap-3 p-4">
+          <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary"><Users className="size-5" /></div>
+          <div><p className="text-xs text-muted-foreground">Σύνολο</p><p className="text-xl font-bold">{counts.all}</p></div>
+        </CardContent></Card>
+        <Card><CardContent className="flex items-center gap-3 p-4">
+          <div className="flex size-10 items-center justify-center rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400"><Star className="size-5" /></div>
+          <div><p className="text-xs text-muted-foreground">VIP Πελάτες</p><p className="text-xl font-bold">{counts.vip}</p></div>
+        </CardContent></Card>
+        <Card><CardContent className="flex items-center gap-3 p-4">
+          <div className="flex size-10 items-center justify-center rounded-full bg-red-500/20 text-red-600 dark:text-red-400"><AlertTriangle className="size-5" /></div>
+          <div><p className="text-xs text-muted-foreground">Με Αλλεργίες</p><p className="text-xl font-bold">{counts.allergies}</p></div>
+        </CardContent></Card>
+        <Card><CardContent className="flex items-center gap-3 p-4">
+          <div className="flex size-10 items-center justify-center rounded-full bg-pink-500/20 text-pink-600 dark:text-pink-400"><Cake className="size-5" /></div>
+          <div><p className="text-xs text-muted-foreground">Γενέθλια 7 ημ.</p><p className="text-xl font-bold">{birthdays.length}</p></div>
+        </CardContent></Card>
       </div>
+
+      {birthdays.length > 0 && (
+        <Card className="border-pink-500/30 bg-pink-500/5">
+          <CardContent className="p-4">
+            <div className="mb-2 flex items-center gap-2"><Cake className="size-4 text-pink-500" /><p className="text-sm font-semibold">Γενέθλια τις επόμενες 7 ημέρες</p></div>
+            <div className="flex flex-wrap gap-2">
+              {birthdays.map((c) => {
+                const days = nextBirthdayDays(c.birthday!);
+                return (
+                  <button key={c.id} type="button" onClick={() => setDetailId(c.id)} className="flex items-center gap-2 rounded-full border border-pink-500/40 bg-background px-3 py-1 text-sm hover:bg-pink-500/10">
+                    <Cake className="size-3.5 text-pink-500" />
+                    <span className="font-medium">{c.name}</span>
+                    <Badge variant="outline" className="text-[10px]">{days === 0 ? "Σήμερα" : `+${days} ημ.`}</Badge>
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="flex gap-1 overflow-x-auto border-b pb-1">
+        {([
+          { id: "all", label: "Όλοι", count: counts.all },
+          { id: "vip", label: "VIP", count: counts.vip },
+          { id: "allergies", label: "Με Αλλεργίες", count: counts.allergies },
+          { id: "regulars", label: "Τακτικοί", count: counts.regulars },
+        ] as const).map((t) => (
+          <button key={t.id} type="button" onClick={() => setFilter(t.id)} className={cn(
+            "shrink-0 rounded-md px-3 py-2 text-sm font-medium transition",
+            filter === t.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+          )}>
+            {t.label}
+            <Badge variant={filter === t.id ? "outline" : "secondary"} className="ml-2 text-[10px]">{t.count}</Badge>
+          </button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
+        <p className="py-12 text-center text-sm text-muted-foreground">
+          {search ? `Δεν βρέθηκαν πελάτες για "${search}"` : "Δεν υπάρχουν πελάτες σε αυτό το φίλτρο"}
+        </p>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="px-3 py-2 text-left">Όνομα</th>
+                <th className="px-3 py-2 text-left">Τηλέφωνο</th>
+                <th className="px-3 py-2 text-right">Επισκέψεις</th>
+                <th className="px-3 py-2 text-right">Σύνολο</th>
+                <th className="px-3 py-2 text-left">Badges</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((c) => (
+                <tr key={c.id} onClick={() => setDetailId(c.id)} className="border-t cursor-pointer hover:bg-muted/30 transition-colors">
+                  <td className="px-3 py-2 font-medium">
+                    <div className="flex items-center gap-2">
+                      {c.is_vip && <Star className="size-3.5 text-amber-500 fill-amber-500" />}
+                      {c.name}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    {c.phone ? <span className="flex items-center gap-1"><Phone className="size-3" />{c.phone}</span> : "—"}
+                  </td>
+                  <td className="px-3 py-2 text-right">{c.total_visits}</td>
+                  <td className="px-3 py-2 text-right font-semibold">{formatPrice(c.total_spent)}</td>
+                  <td className="px-3 py-2">
+                    <div className="flex flex-wrap gap-1">
+                      {c.allergies.length > 0 && (
+                        <Badge variant="outline" className="text-[10px] bg-red-500/10 border-red-500/40 text-red-700 dark:text-red-400">
+                          <AlertTriangle className="mr-1 size-2.5" />{c.allergies.length}
+                        </Badge>
+                      )}
+                      {c.tags.slice(0, 3).map((t) => <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>)}
+                      {c.tags.length > 3 && <Badge variant="outline" className="text-[10px]">+{c.tags.length - 3}</Badge>}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <CustomerFormSheet open={formOpen} onOpenChange={setFormOpen} customer={editing} />
+      <CustomerDetailDrawer
+        customerId={detailId}
+        onOpenChange={(open) => { if (!open) setDetailId(null); }}
+        onEdit={handleEditFromDrawer}
+        onDeleted={() => detailId && handleDeleted(detailId)}
+      />
     </div>
   );
 }

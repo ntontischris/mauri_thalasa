@@ -198,6 +198,10 @@ export interface DbCustomer {
   billing: Record<string, unknown>;
   is_active: boolean;
   discount: number;
+  last_visit_at: string | null;
+  total_visits: number;
+  total_spent: number;
+  marketing_opt_in: boolean;
   legacy_id: number | null;
   source: string;
   metadata: Record<string, unknown>;
