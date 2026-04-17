@@ -1,5 +1,7 @@
 "use client";
 
+import { DashboardTab } from "./dashboard-tab";
+
 import { useState } from "react";
 import {
   BarChart3,
@@ -142,7 +144,7 @@ export function ReportsTabs({
       </div>
 
       {tab === "dashboard" && (
-        <DashboardTab summary={summary} topProducts={topProducts.slice(0, 5)} />
+        <DashboardTab summary={summary} daily={daily} hourly={hourly} topProducts={topProducts} />
       )}
       {tab === "sales" && (
         <SalesTab daily={daily} hourly={hourly} summary={summary} />
@@ -157,132 +159,6 @@ export function ReportsTabs({
 }
 
 // ─────────────── Dashboard ───────────────
-function DashboardTab({
-  summary,
-  topProducts,
-}: {
-  summary: AnalyticsSummary;
-  topProducts: TopProduct[];
-}) {
-  const paymentData = [
-    {
-      name: "Μετρητά",
-      value: summary.cash_revenue_today,
-      count: summary.cash_count_today,
-      color: "#22c55e",
-    },
-    {
-      name: "Κάρτα",
-      value: summary.card_revenue_today,
-      count: summary.card_count_today,
-      color: "#3b82f6",
-    },
-  ].filter((p) => p.value > 0);
-
-  return (
-    <div className="space-y-4">
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-        <Kpi
-          icon={<Euro className="size-5" />}
-          label="Τζίρος σήμερα"
-          value={formatPrice(summary.revenue_today)}
-          hint={`${summary.orders_today} παραγγελίες`}
-        />
-        <Kpi
-          icon={<Receipt className="size-5" />}
-          label="Μέσος λογ. σήμερα"
-          value={formatPrice(summary.avg_ticket_today)}
-          hint={`Εβδομάδα: ${formatPrice(summary.avg_ticket_week)}`}
-        />
-        <Kpi
-          icon={<TrendingUp className="size-5" />}
-          label="Τζίρος εβδομάδας"
-          value={formatPrice(summary.revenue_week)}
-          hint={`${summary.orders_week} παραγγελίες`}
-        />
-        <Kpi
-          icon={<HandCoins className="size-5" />}
-          label="Φιλοδωρήματα μήνα"
-          value={formatPrice(summary.tips_month)}
-        />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Πληρωμές σήμερα</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {paymentData.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                Δεν έχουν ολοκληρωθεί πληρωμές σήμερα.
-              </p>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center gap-3 rounded-lg border p-3">
-                  <Banknote className="size-8 text-emerald-500" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Μετρητά</p>
-                    <p className="text-lg font-bold">
-                      {formatPrice(summary.cash_revenue_today)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {summary.cash_count_today} παραγγ.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 rounded-lg border p-3">
-                  <CreditCard className="size-8 text-blue-500" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Κάρτα</p>
-                    <p className="text-lg font-bold">
-                      {formatPrice(summary.card_revenue_today)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {summary.card_count_today} παραγγ.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Top 5 προϊόντα (μήνας)</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1.5">
-            {topProducts.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                Δεν υπάρχουν δεδομένα.
-              </p>
-            ) : (
-              topProducts.map((p, i) => (
-                <div
-                  key={p.name}
-                  className="flex items-center gap-3 rounded-md border p-2"
-                >
-                  <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
-                    {i + 1}
-                  </div>
-                  <p className="flex-1 truncate text-sm font-medium">
-                    {p.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{p.quantity}×</p>
-                  <p className="text-sm font-semibold">
-                    {formatPrice(p.revenue)}
-                  </p>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}
-
 // ─────────────── Sales ───────────────
 function SalesTab({
   daily,

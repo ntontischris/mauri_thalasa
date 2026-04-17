@@ -2,9 +2,11 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export interface AnalyticsSummary {
   revenue_today: number;
+  revenue_yesterday: number;
   revenue_week: number;
   revenue_month: number;
   orders_today: number;
+  orders_yesterday: number;
   orders_week: number;
   orders_month: number;
   avg_ticket_today: number;
@@ -77,22 +79,29 @@ function isoDate(d: Date) {
 export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
   const supabase = await createServerSupabaseClient();
   const todayStart = startOfDay();
+  const yesterdayStart = daysAgo(1);
   const weekStart = daysAgo(6);
   const monthStart = startOfMonth();
+  const fetchFrom =
+    yesterdayStart.getTime() < monthStart.getTime()
+      ? yesterdayStart
+      : monthStart;
 
   const { data, error } = await supabase
     .from("orders")
     .select("total, tip_amount, payment_method, completed_at")
     .eq("status", "completed")
-    .gte("completed_at", monthStart.toISOString());
+    .gte("completed_at", fetchFrom.toISOString());
 
   if (error) throw new Error(error.message);
 
   const result: AnalyticsSummary = {
     revenue_today: 0,
+    revenue_yesterday: 0,
     revenue_week: 0,
     revenue_month: 0,
     orders_today: 0,
+    orders_yesterday: 0,
     orders_week: 0,
     orders_month: 0,
     avg_ticket_today: 0,
@@ -110,13 +119,19 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
     const total = o.total ?? 0;
     const tip = o.tip_amount ?? 0;
 
-    result.revenue_month += total;
-    result.orders_month += 1;
-    result.tips_month += tip;
-
+    if (ts >= monthStart.getTime()) {
+      result.revenue_month += total;
+      result.orders_month += 1;
+      result.tips_month += tip;
+    }
     if (ts >= weekStart.getTime()) {
       result.revenue_week += total;
       result.orders_week += 1;
+    }
+    // Yesterday bucket: [yesterdayStart, todayStart)
+    if (ts >= yesterdayStart.getTime() && ts < todayStart.getTime()) {
+      result.revenue_yesterday += total;
+      result.orders_yesterday += 1;
     }
     if (ts >= todayStart.getTime()) {
       result.revenue_today += total;
@@ -132,6 +147,7 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
   }
 
   result.revenue_today = Math.round(result.revenue_today * 100) / 100;
+  result.revenue_yesterday = Math.round(result.revenue_yesterday * 100) / 100;
   result.revenue_week = Math.round(result.revenue_week * 100) / 100;
   result.revenue_month = Math.round(result.revenue_month * 100) / 100;
   result.tips_month = Math.round(result.tips_month * 100) / 100;
