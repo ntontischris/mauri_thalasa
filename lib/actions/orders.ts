@@ -409,6 +409,27 @@ export async function sendAllPendingToKitchen(
   return { success: true, data: { count: data?.length ?? 0 } };
 }
 
+export async function markReadyItemsServed(
+  orderId: string,
+): Promise<ActionResult<{ count: number }>> {
+  const supabase = await createServerSupabaseClient();
+
+  const { data, error } = await supabase
+    .from("order_items")
+    .update({ status: "served" })
+    .eq("order_id", orderId)
+    .eq("status", "ready")
+    .select("id");
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath("/orders");
+  revalidatePath("/kitchen");
+  return { success: true, data: { count: data?.length ?? 0 } };
+}
+
 export async function toggleOrderRush(
   input: ToggleRushInput,
 ): Promise<ActionResult> {

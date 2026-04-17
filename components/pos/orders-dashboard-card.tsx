@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import {
   ChevronRight,
@@ -10,9 +11,12 @@ import {
   CircleCheck,
   Sparkles,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { markReadyItemsServed } from "@/lib/actions/orders";
 import type { ActiveOrderSummary } from "@/lib/queries/orders";
 
 function formatPrice(price: number): string {
@@ -119,6 +123,28 @@ function buildReason(order: ActiveOrderSummary): OrderReason {
 export function OrderCard({ order, showWaiter }: OrderCardProps) {
   const bucket = classifyOrder(order);
   const reason = buildReason(order);
+  const [isPending, startTransition] = useTransition();
+  const [servedOptimistic, setServedOptimistic] = useState(false);
+
+  const handleServe = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setServedOptimistic(true);
+    startTransition(async () => {
+      const r = await markReadyItemsServed(order.id);
+      if (!r.success) {
+        toast.error(r.error ?? "Αποτυχία");
+        setServedOptimistic(false);
+        return;
+      }
+      toast.success(`${r.data?.count ?? 0} πιάτα σερβιρίστηκαν`);
+    });
+  };
+
+  const showServeButton =
+    order.ready_count > 0 &&
+    order.table_status !== "bill-requested" &&
+    !servedOptimistic;
 
   const badgeColor: Record<OrderBucket, string> = {
     attention: "border-red-500/50 bg-red-500/10 text-red-700 dark:text-red-400",
@@ -192,7 +218,20 @@ export function OrderCard({ order, showWaiter }: OrderCardProps) {
             <span className="font-bold text-lg">
               {formatPrice(order.total)}
             </span>
-            <ChevronRight className="size-4 text-muted-foreground" />
+            {showServeButton ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 border-red-500/50 text-red-700 hover:bg-red-500/10 dark:text-red-400"
+                onClick={handleServe}
+                disabled={isPending}
+              >
+                <CircleCheck className="mr-1 size-3.5" />
+                Σέρβιρε
+              </Button>
+            ) : (
+              <ChevronRight className="size-4 text-muted-foreground" />
+            )}
           </div>
         </CardContent>
       </Card>
