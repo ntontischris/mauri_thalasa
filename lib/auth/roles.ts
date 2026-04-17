@@ -59,3 +59,6 @@ export const ALLOWED_PATHS_BY_ROLE: Record<StaffRole, string[]> = {
   chef: ["/kitchen", "/menu", "/recipes", "/inventory"],
   barman: ["/kitchen", "/menu"],
 };
+
+// Staff performance is manager-only; enforced by middleware via ALLOWED_PATHS_BY_ROLE
+// (non-managers can't access /staff or /staff/performance since /staff isn't in their list).
