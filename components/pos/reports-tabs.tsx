@@ -1,6 +1,7 @@
 "use client";
 
 import { DashboardTab } from "./dashboard-tab";
+import { SalesTab } from "./sales-tab";
 
 import { useState } from "react";
 import {
@@ -52,6 +53,7 @@ import type {
   HourlyBucket,
   VatBreakdownRow,
   ReservationsStats,
+  HeatmapCell,
 } from "@/lib/queries/analytics";
 
 type Tab =
@@ -105,6 +107,8 @@ interface ReportsTabsProps {
   topProducts: TopProduct[];
   stations: StationStat[];
   reservations: ReservationsStats;
+  bottomProducts: TopProduct[];
+  heatmap: HeatmapCell[];
 }
 
 export function ReportsTabs({
@@ -114,6 +118,8 @@ export function ReportsTabs({
   topProducts,
   stations,
   reservations,
+  bottomProducts,
+  heatmap,
 }: ReportsTabsProps) {
   const [tab, setTab] = useState<Tab>("dashboard");
 
@@ -147,7 +153,7 @@ export function ReportsTabs({
         <DashboardTab summary={summary} daily={daily} hourly={hourly} topProducts={topProducts} />
       )}
       {tab === "sales" && (
-        <SalesTab daily={daily} hourly={hourly} summary={summary} />
+        <SalesTab initialTop={topProducts} initialBottom={bottomProducts} initialHeatmap={heatmap} />
       )}
       {tab === "kitchen" && <KitchenTab stations={stations} />}
       {tab === "foodcost" && <FoodCostPlaceholder />}
@@ -160,112 +166,6 @@ export function ReportsTabs({
 
 // ─────────────── Dashboard ───────────────
 // ─────────────── Sales ───────────────
-function SalesTab({
-  daily,
-  hourly,
-  summary,
-}: {
-  daily: DailyRevenuePoint[];
-  hourly: HourlyBucket[];
-  summary: AnalyticsSummary;
-}) {
-  return (
-    <div className="space-y-4">
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-3">
-        <Kpi
-          icon={<Euro className="size-5" />}
-          label="Τζίρος μήνα"
-          value={formatPrice(summary.revenue_month)}
-          hint={`${summary.orders_month} παραγγελίες`}
-        />
-        <Kpi
-          icon={<Receipt className="size-5" />}
-          label="Μέσος λογ. μήνα"
-          value={formatPrice(summary.avg_ticket_month)}
-        />
-        <Kpi
-          icon={<TrendingUp className="size-5" />}
-          label="Τζίρος εβδομάδας"
-          value={formatPrice(summary.revenue_week)}
-        />
-      </div>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">
-            Ημερήσιος τζίρος (30 ημέρες)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={daily}>
-                <defs>
-                  <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
-                    <stop
-                      offset="0%"
-                      stopColor="hsl(var(--primary))"
-                      stopOpacity={0.5}
-                    />
-                    <stop
-                      offset="100%"
-                      stopColor="hsl(var(--primary))"
-                      stopOpacity={0}
-                    />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.25} />
-                <XAxis
-                  dataKey="date"
-                  tickFormatter={(d: string) => d.slice(5)}
-                  tick={{ fontSize: 11 }}
-                />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip
-                  formatter={(v: number) => formatPrice(v)}
-                  labelFormatter={(l) => `Ημερομηνία: ${l}`}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="hsl(var(--primary))"
-                  fill="url(#rev)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Τζίρος ανά ώρα (σήμερα)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-60">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={hourly}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.25} />
-                <XAxis
-                  dataKey="hour"
-                  tickFormatter={(h: number) => `${h}:00`}
-                  tick={{ fontSize: 11 }}
-                />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip
-                  formatter={(v: number) => formatPrice(v)}
-                  labelFormatter={(l) => `Ώρα: ${l}:00`}
-                />
-                <Bar dataKey="revenue" fill="hsl(var(--primary))" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
 // ─────────────── Kitchen ───────────────
 function KitchenTab({ stations }: { stations: StationStat[] }) {
   const total = stations.reduce((s, x) => s + x.items, 0);

@@ -4,23 +4,35 @@ import {
   getDailyRevenue,
   getHourlyToday,
   getTopProducts,
+  getBottomProducts,
   getStationStats,
   getReservationsStats,
+  getHeatmap,
 } from "@/lib/queries/analytics";
 import { ReportsTabs } from "@/components/pos/reports-tabs";
 
 export const dynamic = "force-dynamic";
 
 export default async function ReportsPage() {
-  const [summary, daily, hourly, topProducts, stations, reservations] =
-    await Promise.all([
-      getAnalyticsSummary(),
-      getDailyRevenue(30),
-      getHourlyToday(),
-      getTopProducts(20),
-      getStationStats(),
-      getReservationsStats(),
-    ]);
+  const [
+    summary,
+    daily,
+    hourly,
+    topProducts,
+    bottomProducts,
+    stations,
+    reservations,
+    heatmap,
+  ] = await Promise.all([
+    getAnalyticsSummary(),
+    getDailyRevenue(30),
+    getHourlyToday(),
+    getTopProducts(20),
+    getBottomProducts(5),
+    getStationStats(),
+    getReservationsStats(),
+    getHeatmap(30),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -39,8 +51,10 @@ export default async function ReportsPage() {
         daily={daily}
         hourly={hourly}
         topProducts={topProducts}
+        bottomProducts={bottomProducts}
         stations={stations}
         reservations={reservations}
+        heatmap={heatmap}
       />
     </div>
   );

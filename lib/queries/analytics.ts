@@ -51,6 +51,26 @@ export interface VatBreakdownRow {
   gross: number;
 }
 
+export interface DailyBreakdownRow {
+  date: string;
+  orders: number;
+  revenue: number;
+  avg_ticket: number;
+}
+
+export interface PeriodCompareResult {
+  current: number;
+  previous: number;
+  change_pct: number;
+  daily_breakdown: DailyBreakdownRow[];
+}
+
+export interface HeatmapCell {
+  day: number; // 0=Sun..6=Sat
+  hour: number; // 0-23
+  revenue: number;
+}
+
 export interface ReservationsStats {
   total_month: number;
   confirmed_month: number;
@@ -234,6 +254,108 @@ export async function getHourlyToday(): Promise<HourlyBucket[]> {
     ...b,
     revenue: Math.round(b.revenue * 100) / 100,
   }));
+}
+
+export async function getSalesForRange(
+  fromIso: string,
+  toIso: string,
+): Promise<PeriodCompareResult> {
+  const supabase = await createServerSupabaseClient();
+  const fromMs = new Date(fromIso).getTime();
+  const toMs = new Date(toIso).getTime();
+  const span = Math.max(1, toMs - fromMs);
+  const prevFrom = new Date(fromMs - span).toISOString();
+
+  const { data, error } = await supabase
+    .from("orders")
+    .select("total, completed_at")
+    .eq("status", "completed")
+    .gte("completed_at", prevFrom)
+    .lte("completed_at", toIso);
+
+  if (error) throw new Error(error.message);
+
+  let current = 0;
+  let previous = 0;
+  const byDay = new Map<string, { orders: number; revenue: number }>();
+
+  for (const o of data ?? []) {
+    if (!o.completed_at) continue;
+    const ts = new Date(o.completed_at).getTime();
+    const total = o.total ?? 0;
+    if (ts >= fromMs && ts <= toMs) {
+      current += total;
+      const key = isoDate(new Date(o.completed_at));
+      const bucket = byDay.get(key) ?? { orders: 0, revenue: 0 };
+      bucket.orders += 1;
+      bucket.revenue += total;
+      byDay.set(key, bucket);
+    } else {
+      previous += total;
+    }
+  }
+
+  const daily: DailyBreakdownRow[] = Array.from(byDay.entries())
+    .map(([date, v]) => ({
+      date,
+      orders: v.orders,
+      revenue: Math.round(v.revenue * 100) / 100,
+      avg_ticket:
+        v.orders > 0 ? Math.round((v.revenue / v.orders) * 100) / 100 : 0,
+    }))
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
+
+  const changePct =
+    previous > 0
+      ? Math.round(((current - previous) / previous) * 1000) / 10
+      : current > 0
+        ? 100
+        : 0;
+
+  return {
+    current: Math.round(current * 100) / 100,
+    previous: Math.round(previous * 100) / 100,
+    change_pct: changePct,
+    daily_breakdown: daily,
+  };
+}
+
+export async function getHeatmap(days = 30): Promise<HeatmapCell[]> {
+  const supabase = await createServerSupabaseClient();
+  const start = daysAgo(days - 1);
+  const { data, error } = await supabase
+    .from("orders")
+    .select("total, completed_at")
+    .eq("status", "completed")
+    .gte("completed_at", start.toISOString());
+  if (error) throw new Error(error.message);
+
+  const grid: HeatmapCell[] = [];
+  const map = new Map<string, number>();
+  for (const o of data ?? []) {
+    if (!o.completed_at) continue;
+    const d = new Date(o.completed_at);
+    const key = `${d.getDay()}-${d.getHours()}`;
+    map.set(key, (map.get(key) ?? 0) + (o.total ?? 0));
+  }
+  for (let day = 0; day < 7; day++) {
+    for (let hour = 11; hour <= 23; hour++) {
+      grid.push({
+        day,
+        hour,
+        revenue: Math.round((map.get(`${day}-${hour}`) ?? 0) * 100) / 100,
+      });
+    }
+  }
+  return grid;
+}
+
+export async function getBottomProducts(limit = 5): Promise<TopProduct[]> {
+  const all = await getTopProducts(1000);
+  return all
+    .filter((p) => p.quantity > 0)
+    .sort((a, b) => a.revenue - b.revenue)
+    .slice(0, limit);
 }
 
 export async function getTopProducts(limit = 20): Promise<TopProduct[]> {
