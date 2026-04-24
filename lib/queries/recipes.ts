@@ -6,10 +6,12 @@ export async function getRecipes(): Promise<RecipeWithIngredients[]> {
   const { data, error } = await supabase
     .from("recipes")
     .select(
-      `id, product_id, prep_time, portion_size, created_at, updated_at,
-       products(name, price),
+      `id, product_id, prep_time, portion_size, method, allergens, difficulty,
+       servings, yield_pct, photo_url, target_food_cost_pct,
+       created_at, updated_at,
+       products(name, price, category_id, categories(name)),
        recipe_ingredients(id, recipe_id, ingredient_id, quantity, unit,
-         ingredients(id, name, unit, cost_per_unit)
+         ingredients(id, name, unit, cost_per_unit, category)
        )`,
     )
     .order("created_at", { ascending: false });

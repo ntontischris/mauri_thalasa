@@ -4,6 +4,7 @@ import { getActiveOrderByTable, getOrderItems } from "@/lib/queries/orders";
 import { getProducts } from "@/lib/queries/products";
 import { getCategories } from "@/lib/queries/categories";
 import { getCourses } from "@/lib/queries/courses";
+import { getCustomerById } from "@/lib/queries/customers";
 import { OrderPanel } from "@/components/pos/order-panel";
 
 interface OrderPageProps {
@@ -24,6 +25,9 @@ export default async function OrderPage({ params }: OrderPageProps) {
   ]);
 
   const items = order ? await getOrderItems(order.id) : [];
+  const initialCustomer = order?.customer_id
+    ? await getCustomerById(order.customer_id)
+    : null;
 
   return (
     <OrderPanel
@@ -33,6 +37,7 @@ export default async function OrderPage({ params }: OrderPageProps) {
       products={products.filter((p) => p.available)}
       categories={categories}
       courses={courses}
+      initialCustomer={initialCustomer}
     />
   );
 }

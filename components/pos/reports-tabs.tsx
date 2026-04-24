@@ -3,6 +3,7 @@
 import { DashboardTab } from "./dashboard-tab";
 import { SalesTab } from "./sales-tab";
 import { KitchenTab } from "./kitchen-tab";
+import { CustomersTab } from "./customers-tab";
 
 import { useState } from "react";
 import {
@@ -13,6 +14,7 @@ import {
   History,
   CalendarDays,
   FileDown,
+  Heart,
   Euro,
   Receipt,
   Banknote,
@@ -61,11 +63,18 @@ import type {
   HourlyThroughput,
   CancelledOrder,
 } from "@/lib/queries/analytics";
+import type {
+  CustomerKpis,
+  TopSpender,
+  BirthdayCustomer,
+  InactiveCustomer,
+} from "@/lib/queries/customer-analytics";
 
 type Tab =
   | "dashboard"
   | "sales"
   | "kitchen"
+  | "customers"
   | "foodcost"
   | "products"
   | "reservations"
@@ -79,6 +88,7 @@ const TABS: {
   { id: "dashboard", label: "Dashboard", icon: BarChart3 },
   { id: "sales", label: "Πωλήσεις", icon: TrendingUp },
   { id: "kitchen", label: "Κουζίνα", icon: ChefHat },
+  { id: "customers", label: "Πελάτες", icon: Heart },
   { id: "foodcost", label: "Food Cost", icon: PieIcon },
   { id: "products", label: "Ιστορικό Πιάτων", icon: History },
   { id: "reservations", label: "Κρατήσεις", icon: CalendarDays },
@@ -120,6 +130,10 @@ interface ReportsTabsProps {
   stationPerf: StationPerformance[];
   throughput: HourlyThroughput[];
   cancellations: CancelledOrder[];
+  customerKpis: CustomerKpis;
+  topSpenders: TopSpender[];
+  birthdays: BirthdayCustomer[];
+  inactive: InactiveCustomer[];
 }
 
 export function ReportsTabs({
@@ -136,6 +150,10 @@ export function ReportsTabs({
   stationPerf,
   throughput,
   cancellations,
+  customerKpis,
+  topSpenders,
+  birthdays,
+  inactive,
 }: ReportsTabsProps) {
   const [tab, setTab] = useState<Tab>("dashboard");
 
@@ -172,6 +190,7 @@ export function ReportsTabs({
         <SalesTab initialTop={topProducts} initialBottom={bottomProducts} initialHeatmap={heatmap} />
       )}
       {tab === "kitchen" && <KitchenTab kpis={kitchenKpis} prepTimes={prepTimes} stations={stationPerf} throughput={throughput} cancellations={cancellations} />}
+      {tab === "customers" && <CustomersTab kpis={customerKpis} topSpenders={topSpenders} birthdays={birthdays} inactive={inactive} />}
       {tab === "foodcost" && <FoodCostPlaceholder />}
       {tab === "products" && <ProductsTab products={topProducts} />}
       {tab === "reservations" && <ReservationsTab stats={reservations} />}

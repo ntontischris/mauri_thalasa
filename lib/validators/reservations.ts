@@ -38,8 +38,35 @@ export const addToWaitlistSchema = z.object({
   notes: z.string().optional(),
 });
 
+export const createPublicReservationSchema = z.object({
+  guest_name: z
+    .string()
+    .trim()
+    .min(2, "Το ονοματεπώνυμο είναι υποχρεωτικό")
+    .max(120),
+  guest_phone: z
+    .string()
+    .trim()
+    .min(6, "Το τηλέφωνο είναι υποχρεωτικό")
+    .max(30),
+  guest_email: z
+    .string()
+    .trim()
+    .email("Μη έγκυρο email")
+    .max(160)
+    .optional()
+    .or(z.literal("")),
+  party_size: z.number().int().min(1).max(8),
+  reservation_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  reservation_time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  notes: z.string().trim().max(500).optional().or(z.literal("")),
+});
+
 export type CreateReservationInput = z.infer<typeof createReservationSchema>;
 export type UpdateReservationStatusInput = z.infer<
   typeof updateReservationStatusSchema
 >;
 export type AddToWaitlistInput = z.infer<typeof addToWaitlistSchema>;
+export type CreatePublicReservationInput = z.infer<
+  typeof createPublicReservationSchema
+>;

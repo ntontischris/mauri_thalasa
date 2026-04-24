@@ -1,6 +1,7 @@
 import { getIngredients, getWasteLog } from "@/lib/queries/ingredients";
 import { getSuppliers } from "@/lib/queries/suppliers";
 import { InventoryPanel } from "@/components/pos/inventory-panel";
+import { ReplenishmentBanner } from "@/components/pos/replenishment-banner";
 
 export default async function InventoryPage() {
   const [ingredients, wasteLog, suppliers] = await Promise.all([
@@ -25,6 +26,7 @@ export default async function InventoryPage() {
           )}
         </p>
       </div>
+      <ReplenishmentBanner />
       <InventoryPanel
         initialIngredients={ingredients}
         wasteLog={wasteLog}

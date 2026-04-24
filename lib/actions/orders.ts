@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getCurrentStaffId } from "@/lib/auth/current-staff";
 import { getModifiersByProduct } from "@/lib/queries/modifiers";
 import type { DbModifier } from "@/lib/types/database";
 import {
@@ -20,6 +21,7 @@ import {
   type AdvanceCourseInput,
   type ToggleRushInput,
 } from "@/lib/validators/orders";
+import { earnPointsForOrder, redeemReward } from "@/lib/actions/loyalty";
 
 interface ActionResult<T = void> {
   success: boolean;
@@ -33,6 +35,16 @@ export async function createOrder(
 ): Promise<ActionResult<{ id: string }>> {
   const supabase = await createServerSupabaseClient();
 
+  const staffId = await getCurrentStaffId(supabase);
+  if (!staffId) {
+    // Not fatal yet (legacy + background calls may lack an auth session),
+    // but make the gap visible so the NOT-NULL follow-up migration can land
+    // once every code path is verified to set it.
+    console.warn(
+      `[orders] createOrder called without an authenticated staff context (table ${tableNumber})`,
+    );
+  }
+
   const { data, error } = await supabase
     .from("orders")
     .insert({
@@ -44,6 +56,7 @@ export async function createOrder(
       discount_amount: 0,
       active_course: 1,
       is_rush: false,
+      created_by: staffId,
     })
     .select("id")
     .single();
@@ -265,17 +278,52 @@ export async function completeOrder(
     .eq("order_id", parsed.data.orderId)
     .neq("status", "served");
 
-  // Complete the order
   const tipAmount = Math.round((parsed.data.tipAmount ?? 0) * 100) / 100;
+
+  const { data: preOrderRow } = await supabase
+    .from("orders")
+    .select("customer_id")
+    .eq("id", parsed.data.orderId)
+    .single();
+  const customerId = preOrderRow?.customer_id ?? null;
+
+  let loyaltyDiscount = 0;
+  if (parsed.data.rewardId && customerId) {
+    const redeemRes = await redeemReward({
+      customerId,
+      rewardId: parsed.data.rewardId,
+      orderId: parsed.data.orderId,
+      orderSubtotal: total,
+    });
+    if (!redeemRes.success) {
+      return {
+        success: false,
+        error: redeemRes.error ?? "Αποτυχία εξαργύρωσης",
+      };
+    }
+    loyaltyDiscount = Math.round((redeemRes.data?.discount ?? 0) * 100) / 100;
+  }
+
+  const finalTotal = Math.max(0, total - loyaltyDiscount);
+
+  const completedBy = await getCurrentStaffId(supabase);
+  if (!completedBy) {
+    console.warn(
+      `[orders] completeOrder without authenticated staff context (order ${parsed.data.orderId.slice(-6)})`,
+    );
+  }
+
   const { error: orderError } = await supabase
     .from("orders")
     .update({
       status: "completed",
       payment_method: parsed.data.paymentMethod,
-      total,
+      discount_amount: loyaltyDiscount,
+      total: finalTotal,
       tip_amount: tipAmount,
       vat_amount: vatTotal,
       completed_at: new Date().toISOString(),
+      completed_by: completedBy,
     })
     .eq("id", parsed.data.orderId);
 
@@ -292,12 +340,75 @@ export async function completeOrder(
     .update({ status: "available", current_order_id: null })
     .eq("id", parsed.data.tableId);
 
+  if (customerId) {
+    const { data: itemRows } = await supabase
+      .from("order_items")
+      .select("product_name")
+      .eq("order_id", parsed.data.orderId);
+
+    const productNames = Array.from(
+      new Set((itemRows ?? []).map((i) => i.product_name as string)),
+    );
+
+    const { data: orderRow2 } = await supabase
+      .from("orders")
+      .select("table_number, total")
+      .eq("id", parsed.data.orderId)
+      .single();
+
+    await supabase.from("customer_visits").insert({
+      customer_id: customerId,
+      order_id: parsed.data.orderId,
+      table_number: orderRow2?.table_number ?? 0,
+      total: orderRow2?.total ?? finalTotal,
+      items: productNames,
+    });
+
+    const { data: customerRow } = await supabase
+      .from("customers")
+      .select("birthday, stamp_count")
+      .eq("id", customerId)
+      .single();
+
+    const today = new Date();
+    const isBirthday =
+      !!customerRow?.birthday &&
+      new Date(customerRow.birthday).getMonth() === today.getMonth() &&
+      new Date(customerRow.birthday).getDate() === today.getDate();
+
+    await earnPointsForOrder({
+      customerId,
+      orderId: parsed.data.orderId,
+      subtotal: finalTotal,
+      isBirthday,
+    });
+
+    await supabase
+      .from("customers")
+      .update({
+        stamp_count: Math.min(10, (customerRow?.stamp_count ?? 0) + 1),
+      })
+      .eq("id", customerId);
+  }
+
   revalidatePath("/tables");
   revalidatePath("/orders");
   revalidatePath("/kitchen");
-  // NOTE: intentionally NOT revalidating /checkout/[tableId] — the completed
-  // order would fail the page's "order must be active" guard and redirect
-  // away, erasing the receipt the user just saw.
+  revalidatePath("/customers");
+  return { success: true };
+}
+
+export async function linkOrderToCustomer(
+  orderId: string,
+  customerId: string | null,
+): Promise<ActionResult> {
+  const supabase = await createServerSupabaseClient();
+  const { error } = await supabase
+    .from("orders")
+    .update({ customer_id: customerId })
+    .eq("id", orderId);
+  if (error) return { success: false, error: error.message };
+  revalidatePath("/orders");
   return { success: true };
 }
 

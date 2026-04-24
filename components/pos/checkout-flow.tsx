@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Banknote, CreditCard, Check, Printer } from "lucide-react";
+import { ArrowLeft, Banknote, CreditCard, Check, Printer, Gift } from "lucide-react";
 import { toast } from "sonner";
 import { completeOrder } from "@/lib/actions/orders";
 import { calculateOrderSubtotal } from "@/lib/pricing/order-totals";
@@ -14,6 +15,8 @@ import { ReceiptPreview } from "./receipt-preview";
 import type {
   DbTable,
   DbOrder,
+  DbCustomer,
+  DbLoyaltyReward,
   DbProduct,
   OrderItemWithModifiers,
   PaymentMethod,
@@ -24,6 +27,7 @@ interface CheckoutFlowProps {
   order: DbOrder;
   items: OrderItemWithModifiers[];
   products: DbProduct[];
+  customer: DbCustomer | null;
 }
 
 function formatPrice(price: number): string {
@@ -33,6 +37,17 @@ function formatPrice(price: number): string {
   }).format(price);
 }
 
+function computeDiscount(r: DbLoyaltyReward, subtotal: number): number {
+  switch (r.kind) {
+    case "discount":
+    case "free_item":
+    case "custom":
+      return Math.min(r.value, subtotal);
+    case "percent_off":
+      return Math.min((subtotal * Math.min(r.value, 100)) / 100, subtotal);
+  }
+}
+
 type CheckoutStep = "payment" | "receipt";
 
 export function CheckoutFlow({
@@ -40,6 +55,7 @@ export function CheckoutFlow({
   order,
   items,
   products,
+  customer,
 }: CheckoutFlowProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -49,6 +65,16 @@ export function CheckoutFlow({
   );
   const [cashGiven, setCashGiven] = useState("");
   const [tip, setTip] = useState("");
+  const [rewards, setRewards] = useState<DbLoyaltyReward[]>([]);
+  const [selectedRewardId, setSelectedRewardId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!customer) return;
+    fetch("/api/loyalty/rewards")
+      .then((r) => r.json())
+      .then((d) => setRewards(Array.isArray(d) ? d : []))
+      .catch(() => setRewards([]));
+  }, [customer]);
 
   const productVatRates = new Map<string, number>();
   for (const p of products) productVatRates.set(p.id, p.vat_rate);
@@ -61,7 +87,11 @@ export function CheckoutFlow({
     })),
   );
   const tipNum = parseFloat(tip) || 0;
-  const grandTotal = subtotal + tipNum;
+  const selectedReward = rewards.find((r) => r.id === selectedRewardId) ?? null;
+  const redemptionDiscount = selectedReward
+    ? computeDiscount(selectedReward, subtotal)
+    : 0;
+  const grandTotal = Math.max(0, subtotal + tipNum - redemptionDiscount);
   const cashGivenNum = parseFloat(cashGiven) || 0;
   const change = cashGivenNum - grandTotal;
 
@@ -73,6 +103,8 @@ export function CheckoutFlow({
         tableId: table.id,
         paymentMethod,
         tipAmount: tipNum,
+        loyaltyDiscount: redemptionDiscount,
+        rewardId: selectedRewardId,
       });
       if (result.success) {
         setStep("receipt");
@@ -185,6 +217,70 @@ export function CheckoutFlow({
           </div>
         </CardContent>
       </Card>
+
+      {customer && (
+        <Card className="border-primary/40 bg-primary/5">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold">{customer.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {customer.loyalty_points} πόντοι διαθέσιμοι · Stamps{" "}
+                  {customer.stamp_count}/10
+                </p>
+              </div>
+              {selectedReward && (
+                <Badge variant="default" className="gap-1">
+                  <Gift className="size-3" /> -{formatPrice(redemptionDiscount)}
+                </Badge>
+              )}
+            </div>
+            {rewards.length > 0 && (
+              <div className="grid gap-1.5 sm:grid-cols-2">
+                {rewards.map((r) => {
+                  const canAfford = customer.loyalty_points >= r.points_cost;
+                  const isSelected = selectedRewardId === r.id;
+                  return (
+                    <button
+                      type="button"
+                      key={r.id}
+                      disabled={!canAfford}
+                      onClick={() =>
+                        setSelectedRewardId((v) => (v === r.id ? null : r.id))
+                      }
+                      className={`text-left flex items-center justify-between gap-2 rounded-md border p-2 text-xs transition ${
+                        isSelected
+                          ? "border-primary bg-primary/10"
+                          : canAfford
+                            ? "hover:bg-muted"
+                            : "opacity-50 cursor-not-allowed"
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{r.name}</p>
+                        {r.description && (
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {r.description}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Badge variant="outline" className="font-mono h-5 text-[10px]">
+                          {r.points_cost}
+                        </Badge>
+                        <span className="text-muted-foreground">→</span>
+                        <Badge variant="secondary" className="h-5 text-[10px]">
+                          {r.kind === "percent_off" ? `${r.value}%` : `€${r.value}`}
+                        </Badge>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Tip */}
       <Card>

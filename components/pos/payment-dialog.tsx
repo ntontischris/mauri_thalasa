@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,13 +13,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Banknote, CreditCard, Printer, Check } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Banknote, CreditCard, Printer, Check, Gift } from "lucide-react";
 import { toast } from "sonner";
 import { completeOrder } from "@/lib/actions/orders";
 import { calculateOrderSubtotal } from "@/lib/pricing/order-totals";
 import { ReceiptPreview } from "./receipt-preview";
 import type {
   DbOrder,
+  DbCustomer,
+  DbLoyaltyReward,
   OrderItemWithModifiers,
   PaymentMethod,
 } from "@/lib/types/database";
@@ -32,6 +35,7 @@ interface PaymentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onComplete: () => void;
+  customer?: DbCustomer | null;
 }
 
 function formatPrice(price: number): string {
@@ -39,6 +43,17 @@ function formatPrice(price: number): string {
     style: "currency",
     currency: "EUR",
   }).format(price);
+}
+
+function computeDiscount(r: DbLoyaltyReward, subtotal: number): number {
+  switch (r.kind) {
+    case "discount":
+    case "free_item":
+    case "custom":
+      return Math.min(r.value, subtotal);
+    case "percent_off":
+      return Math.min((subtotal * Math.min(r.value, 100)) / 100, subtotal);
+  }
 }
 
 type Step = "method" | "receipt";
@@ -51,6 +66,7 @@ export function PaymentDialog({
   open,
   onOpenChange,
   onComplete,
+  customer,
 }: PaymentDialogProps) {
   const [step, setStep] = useState<Step>("method");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(
@@ -58,7 +74,17 @@ export function PaymentDialog({
   );
   const [cashGiven, setCashGiven] = useState("");
   const [tip, setTip] = useState("");
+  const [rewards, setRewards] = useState<DbLoyaltyReward[]>([]);
+  const [selectedRewardId, setSelectedRewardId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!customer) return;
+    fetch("/api/loyalty/rewards")
+      .then((r) => r.json())
+      .then((d) => setRewards(Array.isArray(d) ? d : []))
+      .catch(() => setRewards([]));
+  }, [customer]);
 
   const subtotal = calculateOrderSubtotal(
     items.map((i) => ({
@@ -68,7 +94,13 @@ export function PaymentDialog({
     })),
   );
   const tipNum = parseFloat(tip) || 0;
-  const grandTotal = subtotal + tipNum;
+
+  const selectedReward = rewards.find((r) => r.id === selectedRewardId) ?? null;
+  const redemptionDiscount = selectedReward
+    ? computeDiscount(selectedReward, subtotal)
+    : 0;
+
+  const grandTotal = Math.max(0, subtotal + tipNum - redemptionDiscount);
   const cashGivenNum = parseFloat(cashGiven) || 0;
   const change = cashGivenNum - grandTotal;
   const canPay =
@@ -83,6 +115,8 @@ export function PaymentDialog({
         tableId,
         paymentMethod,
         tipAmount: tipNum,
+        loyaltyDiscount: redemptionDiscount,
+        rewardId: selectedRewardId,
       });
       if (!result.success) {
         toast.error(result.error);
@@ -152,6 +186,68 @@ export function PaymentDialog({
             </DialogHeader>
 
             <div className="space-y-4">
+              {/* Loyalty */}
+              {customer && (
+                <div className="space-y-2 rounded-lg border border-primary/40 bg-primary/5 p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">{customer.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {customer.loyalty_points} πόντοι διαθέσιμοι · Stamps {customer.stamp_count}/10
+                      </p>
+                    </div>
+                    {selectedReward && (
+                      <Badge variant="default" className="gap-1">
+                        <Gift className="size-3" /> -{formatPrice(redemptionDiscount)}
+                      </Badge>
+                    )}
+                  </div>
+                  {rewards.length > 0 && (
+                    <div className="space-y-1.5 pt-1 max-h-48 overflow-y-auto">
+                      {rewards.map((r) => {
+                        const canAfford = customer.loyalty_points >= r.points_cost;
+                        const isSelected = selectedRewardId === r.id;
+                        return (
+                          <button
+                            type="button"
+                            key={r.id}
+                            disabled={!canAfford}
+                            onClick={() =>
+                              setSelectedRewardId((v) => (v === r.id ? null : r.id))
+                            }
+                            className={`w-full text-left flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-xs transition ${
+                              isSelected
+                                ? "border-primary bg-primary/10"
+                                : canAfford
+                                  ? "hover:bg-muted"
+                                  : "opacity-50 cursor-not-allowed"
+                            }`}
+                          >
+                            <div className="min-w-0">
+                              <p className="font-medium truncate">{r.name}</p>
+                              {r.description && (
+                                <p className="text-[10px] text-muted-foreground truncate">
+                                  {r.description}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Badge variant="outline" className="font-mono h-5 text-[10px]">
+                                {r.points_cost} pts
+                              </Badge>
+                              <span className="text-muted-foreground">→</span>
+                              <Badge variant="secondary" className="h-5 text-[10px]">
+                                {r.kind === "percent_off" ? `${r.value}%` : `€${r.value}`}
+                              </Badge>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Tip */}
               <div className="space-y-2 rounded-lg border p-3">
                 <div className="flex items-center justify-between">

@@ -221,10 +221,16 @@ export function CustomerDetailDrawer({
                 <Gift className="size-3.5" />
                 Loyalty
               </h3>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <div className="rounded-md border p-3">
-                  <p className="text-xs text-muted-foreground">Πόντοι</p>
+                  <p className="text-xs text-muted-foreground">Διαθέσιμα</p>
                   <p className="text-xl font-bold">{c.loyalty_points}</p>
+                  <p className="text-[10px] text-muted-foreground">pts</p>
+                </div>
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">Lifetime</p>
+                  <p className="text-xl font-bold">{c.lifetime_points}</p>
+                  <p className="text-[10px] text-muted-foreground">pts total</p>
                 </div>
                 <div className="rounded-md border p-3">
                   <p className="text-xs text-muted-foreground">Stamps</p>
@@ -239,6 +245,13 @@ export function CustomerDetailDrawer({
                   </div>
                 </div>
               </div>
+              {c.points_expiring_at && (
+                <p className="text-xs text-amber-600 flex items-center gap-1">
+                  <History className="size-3" />
+                  Επόμενη λήξη:{" "}
+                  {new Date(c.points_expiring_at).toLocaleDateString("el-GR")}
+                </p>
+              )}
             </section>
 
             <Separator />

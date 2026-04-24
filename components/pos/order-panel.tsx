@@ -44,12 +44,14 @@ import { OrderItemCard } from "./order-item-card";
 import { CourseSeparator } from "./course-separator";
 import { ModifierChips } from "./modifier-chips";
 import { CancelOrderDialog } from "./cancel-order-dialog";
+import { CustomerSelector } from "./customer-selector";
 import type {
   DbTable,
   DbOrder,
   DbProduct,
   DbCategory,
   DbCourse,
+  DbCustomer,
   DbModifier,
   OrderItemWithModifiers,
 } from "@/lib/types/database";
@@ -61,6 +63,7 @@ interface OrderPanelProps {
   products: DbProduct[];
   categories: DbCategory[];
   courses: DbCourse[];
+  initialCustomer: DbCustomer | null;
 }
 
 function formatPrice(price: number): string {
@@ -83,7 +86,11 @@ export function OrderPanel({
   products,
   categories,
   courses,
+  initialCustomer,
 }: OrderPanelProps) {
+  const [linkedCustomer, setLinkedCustomer] = useState<DbCustomer | null>(
+    initialCustomer,
+  );
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const { order, items, setOrder } = useRealtimeOrder(
@@ -331,8 +338,39 @@ export function OrderPanel({
     });
   };
 
+  const checkAllergyWarning = (product: DbProduct): string | null => {
+    if (!linkedCustomer || linkedCustomer.allergies.length === 0) return null;
+    const haystack = [
+      product.name,
+      product.description ?? "",
+      categories.find((c) => c.id === product.category_id)?.name ?? "",
+    ]
+      .join(" ")
+      .toLowerCase();
+    for (const allergen of linkedCustomer.allergies) {
+      const key = allergen.toLowerCase();
+      if (
+        haystack.includes(key) ||
+        // simple Greek-root matches
+        (key.includes("θαλασσιν") && /ψαρ|γαρι|χταποδ|καλαμαρ|αστακ|μυδι|οστρακ/i.test(haystack)) ||
+        (key.includes("λακτοζ") && /τυρ|γιαουρτ|γαλα|φετα|μοτσαρελ/i.test(haystack)) ||
+        (key.includes("γλουτεν") && /ψωμ|ζυμαρικ|μακαρον|πιτσ/i.test(haystack))
+      ) {
+        return allergen;
+      }
+    }
+    return null;
+  };
+
   const handleAddItemWithModifiers = async () => {
     if (!selectedProduct) return;
+    const allergen = checkAllergyWarning(selectedProduct);
+    if (allergen) {
+      const ok = window.confirm(
+        `⚠️ Προσοχή: ${linkedCustomer?.name} έχει αλλεργία σε "${allergen}". Να προστεθεί όντως;`,
+      );
+      if (!ok) return;
+    }
     const orderId = await ensureOrder();
     if (!orderId) return;
 
@@ -351,6 +389,9 @@ export function OrderPanel({
     if (!result.success) {
       toast.error(result.error);
       return;
+    }
+    if (allergen) {
+      toast.warning(`Προστέθηκε παρά την αλλεργία (${allergen})`);
     }
     setSelectedProduct(null);
   };
@@ -466,6 +507,11 @@ export function OrderPanel({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <CustomerSelector
+            orderId={order?.id ?? null}
+            currentCustomer={linkedCustomer}
+            onChange={setLinkedCustomer}
+          />
           {order && (
             <Button
               variant="ghost"

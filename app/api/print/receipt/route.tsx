@@ -43,7 +43,8 @@ export async function POST(request: NextRequest) {
   }
 
   // Try thermal printer first
-  if (getPrinterConfig()) {
+  const printerConfig = getPrinterConfig();
+  if (printerConfig) {
     const ok = await printReceipt({
       order,
       items,
@@ -54,7 +55,13 @@ export async function POST(request: NextRequest) {
     if (ok) {
       return NextResponse.json({ ok: true, method: "thermal" });
     }
-    // fall through to PDF
+    console.warn(
+      `[print] thermal print failed for order ${orderId.slice(-6)}; falling back to PDF`,
+    );
+  } else {
+    console.warn(
+      `[print] PRINTER_IP not set — receipt for order ${orderId.slice(-6)} served as PDF`,
+    );
   }
 
   // PDF fallback

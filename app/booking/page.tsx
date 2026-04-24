@@ -1,19 +1,17 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import {
   UtensilsCrossed,
   CalendarDays,
@@ -26,12 +24,11 @@ import {
   Check,
   ArrowLeft,
   ArrowRight,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// This is a standalone public page (no POS context needed).
-// In production, it would call Supabase directly with anon key.
-// For now, it shows the booking flow UI.
+import { createPublicReservation } from "@/lib/actions/public-reservations";
 
 type BookingStep = "date" | "time" | "details" | "confirmation";
 
@@ -45,12 +42,20 @@ export default function BookingPage() {
   const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   const today = new Date().toISOString().split("T")[0];
 
   // Generate next 30 days
   const availableDates = useMemo(() => {
-    const dates: Array<{ date: string; dayName: string; dayNum: number; monthName: string; isWeekend: boolean }> = [];
+    const dates: Array<{
+      date: string;
+      dayName: string;
+      dayNum: number;
+      monthName: string;
+      isWeekend: boolean;
+    }> = [];
     for (let i = 0; i < 30; i++) {
       const d = new Date();
       d.setDate(d.getDate() + i);
@@ -77,9 +82,24 @@ export default function BookingPage() {
   }, []);
 
   const handleSubmit = () => {
-    if (!name.trim() || !selectedDate || !selectedTime) return;
-    // In production: supabase.from('reservations').insert(...)
-    setSubmitted(true);
+    if (!name.trim() || !phone.trim() || !selectedDate || !selectedTime) return;
+    setSubmitError(null);
+    startTransition(async () => {
+      const result = await createPublicReservation({
+        guest_name: name.trim(),
+        guest_phone: phone.trim(),
+        guest_email: email.trim() || undefined,
+        party_size: partySize,
+        reservation_date: selectedDate,
+        reservation_time: selectedTime,
+        notes: notes.trim() || undefined,
+      });
+      if (result.success) {
+        setSubmitted(true);
+      } else {
+        setSubmitError(result.error ?? "Κάτι πήγε στραβά. Δοκιμάστε ξανά.");
+      }
+    });
   };
 
   if (submitted) {
@@ -100,7 +120,10 @@ export default function BookingPage() {
                 <span className="font-medium">{name}</span>
                 <span className="text-muted-foreground">Ημερομηνία:</span>
                 <span className="font-medium">
-                  {new Date(selectedDate + "T12:00:00").toLocaleDateString("el-GR", { weekday: "long", day: "numeric", month: "long" })}
+                  {new Date(selectedDate + "T12:00:00").toLocaleDateString(
+                    "el-GR",
+                    { weekday: "long", day: "numeric", month: "long" },
+                  )}
                 </span>
                 <span className="text-muted-foreground">Ώρα:</span>
                 <span className="font-medium">{selectedTime}</span>
@@ -108,16 +131,21 @@ export default function BookingPage() {
                 <span className="font-medium">{partySize}</span>
               </div>
             </div>
-            <Button className="mt-6" variant="outline" onClick={() => {
-              setSubmitted(false);
-              setStep("date");
-              setSelectedDate("");
-              setSelectedTime("");
-              setName("");
-              setPhone("");
-              setEmail("");
-              setNotes("");
-            }}>
+            <Button
+              className="mt-6"
+              variant="outline"
+              onClick={() => {
+                setSubmitted(false);
+                setSubmitError(null);
+                setStep("date");
+                setSelectedDate("");
+                setSelectedTime("");
+                setName("");
+                setPhone("");
+                setEmail("");
+                setNotes("");
+              }}
+            >
               Νέα Κράτηση
             </Button>
           </CardContent>
@@ -134,20 +162,30 @@ export default function BookingPage() {
           <UtensilsCrossed className="size-6 text-primary" />
           <h1 className="text-2xl font-bold">Μαύρη Θάλασσα</h1>
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">Online Κράτηση Τραπεζιού</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Online Κράτηση Τραπεζιού
+        </p>
       </header>
 
       {/* Progress */}
       <div className="mx-auto mt-6 flex w-full max-w-lg items-center gap-2 px-4">
         {(["date", "time", "details"] as BookingStep[]).map((s, i) => (
           <div key={s} className="flex flex-1 items-center gap-2">
-            <div className={cn(
-              "flex size-8 items-center justify-center rounded-full text-sm font-bold",
-              step === s ? "bg-primary text-primary-foreground" :
-              (["date", "time", "details"].indexOf(step) > i) ? "bg-green-500 text-white" :
-              "bg-muted text-muted-foreground",
-            )}>
-              {["date", "time", "details"].indexOf(step) > i ? <Check className="size-4" /> : i + 1}
+            <div
+              className={cn(
+                "flex size-8 items-center justify-center rounded-full text-sm font-bold",
+                step === s
+                  ? "bg-primary text-primary-foreground"
+                  : ["date", "time", "details"].indexOf(step) > i
+                    ? "bg-green-500 text-white"
+                    : "bg-muted text-muted-foreground",
+              )}
+            >
+              {["date", "time", "details"].indexOf(step) > i ? (
+                <Check className="size-4" />
+              ) : (
+                i + 1
+              )}
             </div>
             {i < 2 && <div className="h-0.5 flex-1 bg-border" />}
           </div>
@@ -164,7 +202,9 @@ export default function BookingPage() {
                 <CalendarDays className="size-5" />
                 Επιλέξτε ημερομηνία
               </CardTitle>
-              <CardDescription>Πόσα άτομα θα είστε και πότε θα θέλατε να έρθετε;</CardDescription>
+              <CardDescription>
+                Πόσα άτομα θα είστε και πότε θα θέλατε να έρθετε;
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -207,9 +247,13 @@ export default function BookingPage() {
                         d.isWeekend && selectedDate !== d.date && "bg-muted/50",
                       )}
                     >
-                      <span className="text-[10px] text-muted-foreground">{d.dayName}</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {d.dayName}
+                      </span>
                       <span className="text-base font-bold">{d.dayNum}</span>
-                      <span className="text-[10px] text-muted-foreground">{d.monthName}</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {d.monthName}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -236,11 +280,15 @@ export default function BookingPage() {
                 Επιλέξτε ώρα
               </CardTitle>
               <CardDescription>
-                {new Date(selectedDate + "T12:00:00").toLocaleDateString("el-GR", {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                })} - {partySize} άτομα
+                {new Date(selectedDate + "T12:00:00").toLocaleDateString(
+                  "el-GR",
+                  {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                  },
+                )}{" "}
+                - {partySize} άτομα
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -284,11 +332,15 @@ export default function BookingPage() {
                 Τα στοιχεία σας
               </CardTitle>
               <CardDescription>
-                {new Date(selectedDate + "T12:00:00").toLocaleDateString("el-GR", {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                })} στις {selectedTime} - {partySize} άτομα
+                {new Date(selectedDate + "T12:00:00").toLocaleDateString(
+                  "el-GR",
+                  {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                  },
+                )}{" "}
+                στις {selectedTime} - {partySize} άτομα
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -297,42 +349,87 @@ export default function BookingPage() {
                   <User className="mr-1 inline size-3" />
                   Ονοματεπώνυμο *
                 </Label>
-                <Input id="bk-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Γιάννης Κ." />
+                <Input
+                  id="bk-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Γιάννης Κ."
+                />
               </div>
               <div>
                 <Label htmlFor="bk-phone">
                   <Phone className="mr-1 inline size-3" />
                   Τηλέφωνο *
                 </Label>
-                <Input id="bk-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="69x xxx xxxx" />
+                <Input
+                  id="bk-phone"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="69x xxx xxxx"
+                />
               </div>
               <div>
                 <Label htmlFor="bk-email">
                   <Mail className="mr-1 inline size-3" />
                   Email
                 </Label>
-                <Input id="bk-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@example.com" />
+                <Input
+                  id="bk-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="email@example.com"
+                />
               </div>
               <div>
                 <Label htmlFor="bk-notes">
                   <MessageSquare className="mr-1 inline size-3" />
                   Σημειώσεις / Ειδικά αιτήματα
                 </Label>
-                <Textarea id="bk-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="π.χ. αλλεργίες, γενέθλια, παιδικό καρεκλάκι..." rows={3} />
+                <Textarea
+                  id="bk-notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="π.χ. αλλεργίες, γενέθλια, παιδικό καρεκλάκι..."
+                  rows={3}
+                />
               </div>
 
+              {submitError && (
+                <div
+                  className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+                  role="alert"
+                >
+                  <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                  <span>{submitError}</span>
+                </div>
+              )}
+
               <div className="flex gap-2 pt-2">
-                <Button variant="outline" onClick={() => setStep("time")}>
+                <Button
+                  variant="outline"
+                  onClick={() => setStep("time")}
+                  disabled={isPending}
+                >
                   <ArrowLeft className="mr-2 size-4" />
                   Πίσω
                 </Button>
                 <Button
                   className="flex-1"
-                  disabled={!name.trim() || !phone.trim()}
+                  disabled={!name.trim() || !phone.trim() || isPending}
                   onClick={handleSubmit}
                 >
-                  Ολοκλήρωση Κράτησης
-                  <Check className="ml-2 size-4" />
+                  {isPending ? (
+                    <>
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      Καταχώρηση...
+                    </>
+                  ) : (
+                    <>
+                      Ολοκλήρωση Κράτησης
+                      <Check className="ml-2 size-4" />
+                    </>
+                  )}
                 </Button>
               </div>
             </CardContent>

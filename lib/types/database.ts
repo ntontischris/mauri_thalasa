@@ -71,11 +71,24 @@ export interface DbAuditLog {
 
 // --- Zones ---
 
+export interface DbFloor {
+  id: string;
+  name: string;
+  sort_order: number;
+  width: number;
+  height: number;
+  background_url: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DbZone {
   id: string;
   name: string;
   color: string;
   sort_order: number;
+  floor_id: string;
   legacy_id: number | null;
   metadata: Record<string, unknown>;
   created_at: string;
@@ -96,8 +109,12 @@ export interface DbTable {
   zone_id: string;
   x: number;
   y: number;
+  width: number;
+  height: number;
   shape: TableShape;
   rotation: number;
+  is_active: boolean;
+  label: string | null;
   legacy_id: number | null;
   metadata: Record<string, unknown>;
   created_at: string;
@@ -202,6 +219,10 @@ export interface DbCustomer {
   total_visits: number;
   total_spent: number;
   marketing_opt_in: boolean;
+  tier_id: string | null;
+  tier_updated_at: string | null;
+  lifetime_points: number;
+  points_expiring_at: string | null;
   legacy_id: number | null;
   source: string;
   metadata: Record<string, unknown>;
@@ -263,6 +284,13 @@ export interface DbRecipe {
   product_id: string;
   prep_time: number | null;
   portion_size: number | null;
+  method: string | null;
+  allergens: string[];
+  difficulty: number;
+  servings: number;
+  yield_pct: number;
+  photo_url: string | null;
+  target_food_cost_pct: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -279,7 +307,12 @@ export type RecipeWithIngredients = DbRecipe & {
   recipe_ingredients: (DbRecipeIngredient & {
     ingredients: DbIngredient;
   })[];
-  products: { name: string; price: number };
+  products: {
+    name: string;
+    price: number;
+    category_id: string;
+    categories: { name: string } | null;
+  };
 };
 
 // --- Suppliers ---
@@ -476,5 +509,80 @@ export interface DbBookingSettings {
   send_email_confirmation: boolean;
   reminder_hours_before: number;
   no_show_threshold_minutes: number;
+  updated_at: string;
+}
+
+// --- Loyalty ---
+
+export type LoyaltyTxnKind =
+  | "earn"
+  | "redeem"
+  | "adjust"
+  | "bonus"
+  | "referral"
+  | "expire"
+  | "opening";
+
+export interface DbLoyaltyTransaction {
+  id: string;
+  customer_id: string;
+  kind: LoyaltyTxnKind;
+  points: number;
+  order_id: string | null;
+  reward_id: string | null;
+  note: string | null;
+  expires_at: string | null;
+  created_at: string;
+  created_by: string | null;
+}
+
+export interface DbLoyaltyTier {
+  id: string;
+  name: string;
+  sort_order: number;
+  min_spend_12m: number;
+  min_visits_12m: number;
+  point_multiplier: number;
+  color: string;
+  icon: string | null;
+  perks: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export type LoyaltyRewardKind =
+  | "discount"
+  | "free_item"
+  | "percent_off"
+  | "custom";
+
+export interface DbLoyaltyReward {
+  id: string;
+  name: string;
+  description: string | null;
+  kind: LoyaltyRewardKind;
+  points_cost: number;
+  value: number;
+  product_id: string | null;
+  min_tier_id: string | null;
+  active: boolean;
+  stock: number | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DbLoyaltySettings {
+  id: string;
+  points_per_euro: number;
+  points_for_reward: number;
+  reward_value: number;
+  stamps_for_free_item: number;
+  expiration_months: number;
+  welcome_bonus: number;
+  birthday_multiplier: number;
+  winback_bonus: number;
+  winback_days: number;
+  referral_bonus: number;
   updated_at: string;
 }

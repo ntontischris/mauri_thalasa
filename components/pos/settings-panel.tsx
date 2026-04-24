@@ -13,6 +13,7 @@ import {
   Globe,
   UtensilsCrossed,
   UserCog,
+  LayoutGrid,
   type LucideIcon,
 } from "lucide-react";
 
@@ -24,6 +25,12 @@ interface SettingsSection {
 }
 
 const settingsSections: SettingsSection[] = [
+  {
+    icon: LayoutGrid,
+    title: "Κάτοψη Εστιατορίου",
+    desc: "Ορόφοι, ζώνες, τραπέζια — drag & drop",
+    href: "/settings/floor-plan",
+  },
   {
     icon: UtensilsCrossed,
     title: "Πιάτα & Κατηγορίες",

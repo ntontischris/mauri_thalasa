@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { getTableById } from "@/lib/queries/tables";
 import { getActiveOrderByTable, getOrderItems } from "@/lib/queries/orders";
 import { getProducts } from "@/lib/queries/products";
+import { getCustomerById } from "@/lib/queries/customers";
 import { CheckoutFlow } from "@/components/pos/checkout-flow";
 
 interface CheckoutPageProps {
@@ -21,6 +22,9 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
     getOrderItems(order.id),
     getProducts(),
   ]);
+  const customer = order.customer_id
+    ? await getCustomerById(order.customer_id)
+    : null;
 
   return (
     <CheckoutFlow
@@ -28,6 +32,7 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
       order={order}
       items={items}
       products={products}
+      customer={customer}
     />
   );
 }

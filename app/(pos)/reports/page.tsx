@@ -14,6 +14,12 @@ import {
   getHourlyThroughput,
   getCancelledOrders,
 } from "@/lib/queries/analytics";
+import {
+  getCustomerKpis,
+  getTopSpenders,
+  getUpcomingBirthdaysForReports,
+  getInactiveCustomers,
+} from "@/lib/queries/customer-analytics";
 import { ReportsTabs } from "@/components/pos/reports-tabs";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +39,10 @@ export default async function ReportsPage() {
     stationPerf,
     throughput,
     cancellations,
+    customerKpis,
+    topSpenders,
+    birthdays,
+    inactive,
   ] = await Promise.all([
     getAnalyticsSummary(),
     getDailyRevenue(30),
@@ -47,6 +57,10 @@ export default async function ReportsPage() {
     getStationPerformance(),
     getHourlyThroughput(),
     getCancelledOrders(20),
+    getCustomerKpis(),
+    getTopSpenders(20),
+    getUpcomingBirthdaysForReports(30),
+    getInactiveCustomers(60, 50),
   ]);
 
   return (
@@ -75,6 +89,10 @@ export default async function ReportsPage() {
         stationPerf={stationPerf}
         throughput={throughput}
         cancellations={cancellations}
+        customerKpis={customerKpis}
+        topSpenders={topSpenders}
+        birthdays={birthdays}
+        inactive={inactive}
       />
     </div>
   );
