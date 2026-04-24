@@ -5,6 +5,8 @@ import { KitchenDisplay } from "@/components/pos/kitchen-display";
 import type { StaffRole } from "@/lib/auth/roles";
 import type { StationType } from "@/lib/types/database";
 
+export const dynamic = "force-dynamic";
+
 function defaultStationForRole(role: StaffRole): StationType | "all" {
   switch (role) {
     case "chef":

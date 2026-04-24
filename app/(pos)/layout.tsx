@@ -15,6 +15,11 @@ import { redirect } from "next/navigation";
 // Note: role-based route guarding lives in the middleware
 // (lib/supabase/middleware.ts) so redirects happen before the page renders.
 
+// The layout hits supabase.auth.getUser(), which requires runtime
+// env vars and cookies — there is no meaningful "static" render of
+// the authenticated shell. Propagates to every child route.
+export const dynamic = "force-dynamic";
+
 export default async function POSLayout({
   children,
 }: {

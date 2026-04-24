@@ -1,6 +1,8 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { CampaignsPanel } from "@/components/pos/campaigns-panel";
 
+export const dynamic = "force-dynamic";
+
 export default async function CampaignsPage() {
   const supabase = await createServerSupabaseClient();
 

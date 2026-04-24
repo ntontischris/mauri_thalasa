@@ -5,6 +5,8 @@ import { getCourses } from "@/lib/queries/courses";
 import { MenuList } from "@/components/pos/menu-list";
 import type { StaffRole } from "@/lib/auth/roles";
 
+export const dynamic = "force-dynamic";
+
 export default async function MenuPage() {
   const supabase = await createServerSupabaseClient();
   const {
