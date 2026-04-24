@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,17 +45,19 @@ export default function BookingPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const today = new Date().toISOString().split("T")[0];
-
-  // Generate next 30 days
-  const availableDates = useMemo(() => {
-    const dates: Array<{
-      date: string;
-      dayName: string;
-      dayNum: number;
-      monthName: string;
-      isWeekend: boolean;
-    }> = [];
+  // Dates are computed from `new Date()` + locale-specific labels.
+  // Both differ between server and client, which would hydrate-mismatch
+  // if we built them during render. Compute once on mount instead.
+  type DateOption = {
+    date: string;
+    dayName: string;
+    dayNum: number;
+    monthName: string;
+    isWeekend: boolean;
+  };
+  const [availableDates, setAvailableDates] = useState<DateOption[]>([]);
+  useEffect(() => {
+    const dates: DateOption[] = [];
     for (let i = 0; i < 30; i++) {
       const d = new Date();
       d.setDate(d.getDate() + i);
@@ -68,7 +70,7 @@ export default function BookingPage() {
         isWeekend: dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6,
       });
     }
-    return dates;
+    setAvailableDates(dates);
   }, []);
 
   // Generate time slots (12:00 - 22:30 in 30min intervals)
