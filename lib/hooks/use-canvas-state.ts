@@ -73,9 +73,13 @@ export function useCanvasState(initial: DbTable[]) {
         return m ? { ...t, ...m } : t;
       }),
     );
-    snap.forEach((p) =>
-      moveTable({ id: p.id, x: p.x, y: p.y, rotation: p.rotation }),
-    );
+    Promise.all(
+      snap.map((p) =>
+        moveTable({ id: p.id, x: p.x, y: p.y, rotation: p.rotation }),
+      ),
+    ).catch((err) => {
+      console.error("applySnapshot batch failed:", err);
+    });
   }, []);
 
   const undo = useCallback(() => {

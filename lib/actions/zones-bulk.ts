@@ -81,6 +81,13 @@ export async function cascadeDeleteZone(
     .eq("zone_id", parsed.data.zoneId);
   if (mvErr) return { success: false, error: mvErr.message };
 
+  // Mirror to all layout positions (not just the active one — cascade delete is a full reassignment)
+  const { error: posMvErr } = await supabase
+    .from("floor_layout_positions")
+    .update({ zone_id: parsed.data.moveToZoneId })
+    .eq("zone_id", parsed.data.zoneId);
+  if (posMvErr) return { success: false, error: posMvErr.message };
+
   const { error: delErr } = await supabase
     .from("zones")
     .delete()

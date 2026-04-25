@@ -187,6 +187,13 @@ export function Canvas({
             key={t.id}
             transform={`translate(${t.x}, ${t.y}) rotate(${t.rotation}, ${t.width / 2}, ${t.height / 2})`}
             onMouseDown={(e) => handleTableMouseDown(e, t)}
+            onDragStart={(e) => {
+              e.dataTransfer.setData("application/x-mauri-table-id", t.id);
+              e.dataTransfer.effectAllowed = "move";
+            }}
+            {...({ draggable: true } as Partial<
+              React.HTMLAttributes<SVGGElement>
+            >)}
             className="cursor-move"
           >
             {t.shape === "round" ? (

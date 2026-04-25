@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { DbTable, DbZone, TableShape } from "@/lib/types/database";
 import { upsertTable, deleteTable } from "@/lib/actions/floor-plan";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,11 @@ type Props = {
 };
 
 export function SelectionPanel({ table, zones, onChange }: Props) {
+  const [rotation, setRotation] = useState(table?.rotation ?? 0);
+  useEffect(() => {
+    if (table) setRotation(table.rotation);
+  }, [table?.id, table?.rotation]);
+
   if (!table) {
     return (
       <p className="p-3 text-xs text-muted-foreground">
@@ -138,19 +144,21 @@ export function SelectionPanel({ table, zones, onChange }: Props) {
             size="sm"
             variant="outline"
             onClick={async () => {
-              const r = (table.rotation - 15 + 360) % 360;
+              const r = (rotation - 15 + 360) % 360;
+              setRotation(r);
               await upsertTable({ ...table, rotation: r });
               onChange({ ...table, rotation: r });
             }}
           >
             -15°
           </Button>
-          <span className="self-center text-sm">{table.rotation}°</span>
+          <span className="self-center text-sm">{rotation}°</span>
           <Button
             size="sm"
             variant="outline"
             onClick={async () => {
-              const r = (table.rotation + 15) % 360;
+              const r = (rotation + 15) % 360;
+              setRotation(r);
               await upsertTable({ ...table, rotation: r });
               onChange({ ...table, rotation: r });
             }}
@@ -165,7 +173,10 @@ export function SelectionPanel({ table, zones, onChange }: Props) {
         size="sm"
         onClick={async () => {
           if (confirm(`Διαγραφή τραπεζιού #${table.number};`)) {
-            await deleteTable(table.id);
+            const result = await deleteTable(table.id);
+            if (!result.success) {
+              alert(`Σφάλμα διαγραφής: ${result.error ?? "unknown"}`);
+            }
           }
         }}
       >

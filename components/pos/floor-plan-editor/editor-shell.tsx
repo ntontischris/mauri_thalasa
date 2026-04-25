@@ -38,10 +38,11 @@ export function EditorShell({
   const zoneIds = new Set(floorZones.map((z) => z.id));
   const floorTables = tables.filter((t) => t.zone_id && zoneIds.has(t.zone_id));
   const layouts = layoutsByFloor[activeFloorId] ?? [];
-  const selectedTable =
-    selected.size === 1
-      ? (floorTables.find((t) => selected.has(Array.from(selected)[0])) ?? null)
-      : null;
+  const firstSelectedId =
+    selected.size === 1 ? (Array.from(selected)[0] ?? null) : null;
+  const selectedTable = firstSelectedId
+    ? (floorTables.find((t) => t.id === firstSelectedId) ?? null)
+    : null;
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
