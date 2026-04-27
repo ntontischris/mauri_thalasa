@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import type { DbTable } from "@/lib/types/database";
 
 interface ActionResult<T = void> {
   success: boolean;
@@ -34,6 +35,7 @@ export async function upsertFloor(
     height: parsed.data.height,
     background_url: parsed.data.background_url ?? null,
   };
+  const isNew = !parsed.data.id;
   const { data, error } = parsed.data.id
     ? await supabase
         .from("floors")
@@ -43,6 +45,27 @@ export async function upsertFloor(
         .single()
     : await supabase.from("floors").insert(payload).select("id").single();
   if (error) return { success: false, error: error.message };
+
+  if (isNew) {
+    // Seed default zone + active layout so the new floor is immediately usable
+    // (drag-drop in editor needs a zone; layout positions sync needs an active layout)
+    const { error: zoneErr } = await supabase.from("zones").insert({
+      name: "Γενική",
+      color: "#3b82f6",
+      sort_order: 0,
+      floor_id: data.id,
+    });
+    if (zoneErr) return { success: false, error: zoneErr.message };
+
+    const { error: layoutErr } = await supabase.from("floor_layouts").insert({
+      floor_id: data.id,
+      name: "Κύρια Διάταξη",
+      is_active: true,
+      sort_order: 0,
+    });
+    if (layoutErr) return { success: false, error: layoutErr.message };
+  }
+
   revalidatePath("/tables");
   revalidatePath("/settings/floor-plan");
   return { success: true, data: { id: data.id } };
@@ -136,7 +159,7 @@ const tableSchema = z.object({
 
 export async function upsertTable(
   input: z.infer<typeof tableSchema>,
-): Promise<ActionResult<{ id: string }>> {
+): Promise<ActionResult<DbTable>> {
   const parsed = tableSchema.safeParse(input);
   if (!parsed.success)
     return { success: false, error: parsed.error.errors[0].message };
@@ -178,16 +201,16 @@ export async function upsertTable(
         .from("tables")
         .update(payload)
         .eq("id", parsed.data.id)
-        .select("id")
+        .select("*")
         .single()
-    : await supabase.from("tables").insert(payload).select("id").single();
+    : await supabase.from("tables").insert(payload).select("*").single();
   if (error) return { success: false, error: error.message };
   revalidatePath("/tables");
   revalidatePath("/settings/floor-plan");
-  return { success: true, data: { id: data.id } };
+  return { success: true, data: data as DbTable };
 }
 
-// Lightweight position update — called repeatedly from drag events
+// Lightweight position update — writes to active layout positions; trigger mirrors to tables
 export async function moveTable(input: {
   id: string;
   x: number;
@@ -203,18 +226,61 @@ export async function moveTable(input: {
   const parsed = schema.safeParse(input);
   if (!parsed.success)
     return { success: false, error: parsed.error.errors[0].message };
+
   const supabase = await createServerSupabaseClient();
-  const update: Record<string, unknown> = {
-    x: parsed.data.x,
-    y: parsed.data.y,
-  };
-  if (parsed.data.rotation !== undefined)
-    update.rotation = parsed.data.rotation;
-  const { error } = await supabase
+
+  // Look up the table's zone, then the floor's active layout
+  const { data: tbl } = await supabase
     .from("tables")
-    .update(update)
-    .eq("id", parsed.data.id);
-  if (error) return { success: false, error: error.message };
+    .select("zone_id")
+    .eq("id", parsed.data.id)
+    .single();
+  if (!tbl?.zone_id) return { success: false, error: "table has no zone" };
+
+  const { data: zone } = await supabase
+    .from("zones")
+    .select("floor_id")
+    .eq("id", tbl.zone_id)
+    .single();
+  if (!zone?.floor_id) return { success: false, error: "zone has no floor" };
+
+  const { data: layout } = await supabase
+    .from("floor_layouts")
+    .select("id")
+    .eq("floor_id", zone.floor_id)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (layout) {
+    // Active layout exists — write to positions; trigger updates tables
+    const { error } = await supabase.from("floor_layout_positions").upsert(
+      {
+        layout_id: layout.id,
+        table_id: parsed.data.id,
+        x: parsed.data.x,
+        y: parsed.data.y,
+        rotation: parsed.data.rotation ?? 0,
+        zone_id: tbl.zone_id,
+      },
+      { onConflict: "layout_id,table_id" },
+    );
+    if (error) return { success: false, error: error.message };
+  } else {
+    // Defensive fallback — no active layout, write directly
+    const update: Record<string, unknown> = {
+      x: parsed.data.x,
+      y: parsed.data.y,
+    };
+    if (parsed.data.rotation !== undefined)
+      update.rotation = parsed.data.rotation;
+    const { error } = await supabase
+      .from("tables")
+      .update(update)
+      .eq("id", parsed.data.id);
+    if (error) return { success: false, error: error.message };
+  }
+
+  revalidatePath("/settings/floor-plan");
   return { success: true };
 }
 

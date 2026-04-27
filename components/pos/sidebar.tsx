@@ -32,6 +32,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 import { useSupabase } from "@/components/providers/supabase-provider";
 import { ALL_ROLES, type StaffRole } from "@/lib/auth/roles";
 
@@ -41,6 +42,13 @@ interface NavItem {
   icon: LucideIcon;
   roles: StaffRole[];
 }
+
+const pinnedItem: NavItem = {
+  title: "Αναφορές",
+  href: "/reports",
+  icon: BarChart3,
+  roles: ["manager", "waiter"],
+};
 
 const navItems: NavItem[] = [
   {
@@ -121,12 +129,6 @@ const navItems: NavItem[] = [
     icon: Bot,
     roles: ["manager"],
   },
-  {
-    title: "Αναφορές",
-    href: "/reports",
-    icon: BarChart3,
-    roles: ["manager", "waiter"],
-  },
 ];
 
 export function POSSidebar() {
@@ -144,6 +146,10 @@ export function POSSidebar() {
   const visibleItems = role
     ? navItems.filter((item) => item.roles.includes(role))
     : [];
+
+  const showPinned = role ? pinnedItem.roles.includes(role) : false;
+  const isPinnedActive =
+    pathname === pinnedItem.href || pathname.startsWith(`${pinnedItem.href}/`);
 
   const showSettings = role === "manager";
 
@@ -166,6 +172,31 @@ export function POSSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
+        {showPinned && (
+          <>
+            <SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isPinnedActive}
+                      tooltip={pinnedItem.title}
+                      size="lg"
+                      className="bg-sidebar-accent/40 font-semibold data-[active=true]:bg-primary data-[active=true]:text-primary-foreground"
+                    >
+                      <Link href={pinnedItem.href}>
+                        <pinnedItem.icon className="size-5" />
+                        <span>{pinnedItem.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+            <Separator className="mx-2 w-auto" />
+          </>
+        )}
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>

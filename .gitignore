@@ -15,3 +15,6 @@ node_modules
 .next/
 .DS_Store
 tsconfig.tsbuildinfo
+
+# Superpowers brainstorming session files (local-only, transient)
+.superpowers/
