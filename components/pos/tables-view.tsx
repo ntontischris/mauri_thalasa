@@ -99,7 +99,15 @@ export function TablesView({
 }: TablesViewProps) {
   const tables = useRealtimeTables(initialTables);
   const router = useRouter();
-  const [activeFloorId, setActiveFloorId] = useState<string>(floors[0]?.id ?? "");
+  const [activeFloorId, setActiveFloorId] = useState<string>(() => {
+    // Prefer first floor that actually contains tables (via its zones), so adding
+    // an empty new floor doesn't leave the page looking blank by default.
+    const tableZoneIds = new Set(initialTables.map((t) => t.zone_id));
+    const populated = floors.find((f) =>
+      zones.some((z) => z.floor_id === f.id && tableZoneIds.has(z.id)),
+    );
+    return populated?.id ?? floors[0]?.id ?? "";
+  });
   const [activeZone, setActiveZone] = useState("all");
   const [statusFilter, setStatusFilter] = useState<TableStatus | "all">("all");
   const [search, setSearch] = useState("");
@@ -426,20 +434,16 @@ function FloorPlanView({
             const duration = live ? nowTs - new Date(live.opened_at).getTime() : 0;
             const isOverdue = duration > 90 * 60000;
 
-            const fillColor =
-              t.status === "available" ? "white"
-              : t.status === "occupied" ? "rgb(254 243 199)"
-              : t.status === "bill-requested" ? "rgb(219 234 254)"
-              : "rgb(243 244 246)";
+            const fillColor = zone?.color ?? "#6366f1";
 
             const body = t.shape === "round" ? (
               <ellipse cx={w / 2} cy={h / 2} rx={w / 2} ry={h / 2}
                 fill={fillColor}
-                stroke={zone?.color ?? "#64748b"} strokeWidth={2} />
+                stroke="#000" strokeWidth={1} />
             ) : (
-              <rect width={w} height={h} rx={8} ry={8}
+              <rect width={w} height={h} rx={4} ry={4}
                 fill={fillColor}
-                stroke={zone?.color ?? "#64748b"} strokeWidth={2} />
+                stroke="#000" strokeWidth={1} />
             );
 
             return (
@@ -454,7 +458,7 @@ function FloorPlanView({
                     stroke="rgb(244 63 94)" strokeWidth={3} strokeDasharray="4 2" />
                 )}
                 <text x={w / 2} y={h / 2 - 4} textAnchor="middle"
-                  fontSize={Math.min(w, h) * 0.28} fontWeight="700" fill="currentColor">
+                  fontSize={Math.min(w, h) * 0.28} fontWeight="700" fill="#000">
                   {t.label ?? t.number}
                 </text>
                 {live && (

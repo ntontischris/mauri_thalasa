@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { upsertFloor } from "@/lib/actions/floor-plan";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,26 +19,42 @@ const PRESETS = [
   { id: "terrace", label: "Μεγάλη βεράντα", width: 1600, height: 1000 },
 ];
 
-export function FloorPresetsDialog() {
+type Props = {
+  onCreated?: (floorId: string) => void;
+};
+
+export function FloorPresetsDialog({ onCreated }: Props = {}) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [picked, setPicked] = useState(PRESETS[1]);
   const [custom, setCustom] = useState({ width: 1200, height: 800 });
   const [useCustom, setUseCustom] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [errMsg, setErrMsg] = useState<string | null>(null);
 
   async function handleCreate() {
     if (!name.trim()) return;
+    setSubmitting(true);
+    setErrMsg(null);
     const dims = useCustom
       ? custom
       : { width: picked.width, height: picked.height };
-    await upsertFloor({
+    const result = await upsertFloor({
       name,
       width: dims.width,
       height: dims.height,
       sort_order: 0,
     });
+    setSubmitting(false);
+    if (!result.success) {
+      setErrMsg(result.error ?? "Άγνωστο σφάλμα");
+      return;
+    }
     setOpen(false);
     setName("");
+    router.refresh();
+    if (result.data?.id) onCreated?.(result.data.id);
   }
 
   return (
@@ -109,8 +126,10 @@ export function FloorPresetsDialog() {
           )}
         </button>
 
-        <Button onClick={handleCreate} disabled={!name.trim()}>
-          Δημιουργία
+        {errMsg && <p className="text-xs text-destructive">Σφάλμα: {errMsg}</p>}
+
+        <Button onClick={handleCreate} disabled={!name.trim() || submitting}>
+          {submitting ? "Δημιουργία..." : "Δημιουργία"}
         </Button>
       </DialogContent>
     </Dialog>

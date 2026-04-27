@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { DbTable, DbZone, TableShape } from "@/lib/types/database";
 import { upsertTable, deleteTable } from "@/lib/actions/floor-plan";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ type Props = {
 };
 
 export function SelectionPanel({ table, zones, onChange }: Props) {
+  const router = useRouter();
   const [rotation, setRotation] = useState(table?.rotation ?? 0);
   useEffect(() => {
     if (table) setRotation(table.rotation);
@@ -176,7 +178,9 @@ export function SelectionPanel({ table, zones, onChange }: Props) {
             const result = await deleteTable(table.id);
             if (!result.success) {
               alert(`Σφάλμα διαγραφής: ${result.error ?? "unknown"}`);
+              return;
             }
+            router.refresh();
           }
         }}
       >

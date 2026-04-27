@@ -12,7 +12,6 @@ import { LayoutsPanel } from "./layouts-panel";
 import { FloorPresetsDialog } from "./floor-presets-dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { bulkUpdateZone } from "@/lib/actions/zones-bulk";
 
 type Props = {
   floors: DbFloor[];
@@ -77,18 +76,13 @@ export function EditorShell({
     }
   }
 
-  async function handleTableDroppedOnZone(tableId: string, zoneId: string) {
-    pushUndo();
-    await bulkUpdateZone({ tableIds: [tableId], zoneId });
-  }
-
   if (!floor) {
     return (
       <div className="flex h-[60vh] flex-col items-center justify-center gap-3">
         <p className="text-muted-foreground">
           Δεν υπάρχει όροφος. Δημιούργησε έναν.
         </p>
-        <FloorPresetsDialog />
+        <FloorPresetsDialog onCreated={(id) => setActiveFloorId(id)} />
       </div>
     );
   }
@@ -107,7 +101,7 @@ export function EditorShell({
             </option>
           ))}
         </select>
-        <FloorPresetsDialog />
+        <FloorPresetsDialog onCreated={(id) => setActiveFloorId(id)} />
         <div className="flex-1" />
         <Button size="sm" variant="ghost" onClick={undo}>
           Undo
@@ -147,7 +141,6 @@ export function EditorShell({
                 zones={floorZones}
                 tables={floorTables}
                 floorId={activeFloorId}
-                onTableDroppedOnZone={handleTableDroppedOnZone}
               />
             </TabsContent>
             <TabsContent value="layouts">

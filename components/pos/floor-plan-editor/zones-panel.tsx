@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { DbZone, DbTable } from "@/lib/types/database";
 import { upsertZone } from "@/lib/actions/floor-plan";
 import { cascadeDeleteZone } from "@/lib/actions/zones-bulk";
@@ -11,26 +12,15 @@ type Props = {
   zones: DbZone[];
   tables: DbTable[];
   floorId: string;
-  onTableDroppedOnZone: (tableId: string, zoneId: string) => void;
 };
 
-export function ZonesPanel({
-  zones,
-  tables,
-  floorId,
-  onTableDroppedOnZone,
-}: Props) {
+export function ZonesPanel({ zones, tables, floorId }: Props) {
+  const router = useRouter();
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [color, setColor] = useState("#3b82f6");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [moveTo, setMoveTo] = useState<string>("");
-
-  function handleZoneDrop(e: React.DragEvent, zoneId: string) {
-    e.preventDefault();
-    const tid = e.dataTransfer.getData("application/x-mauri-table-id");
-    if (tid) onTableDroppedOnZone(tid, zoneId);
-  }
 
   return (
     <div className="p-3 flex flex-col gap-2">
@@ -41,8 +31,6 @@ export function ZonesPanel({
         return (
           <div
             key={z.id}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => handleZoneDrop(e, z.id)}
             className="flex items-center gap-2 rounded border p-2 hover:bg-accent"
           >
             <div
@@ -98,6 +86,7 @@ export function ZonesPanel({
                 });
                 setConfirmDelete(null);
                 setMoveTo("");
+                router.refresh();
               }}
             >
               Διαγραφή
@@ -134,6 +123,7 @@ export function ZonesPanel({
                 });
                 setName("");
                 setAdding(false);
+                router.refresh();
               }}
             >
               Προσθήκη

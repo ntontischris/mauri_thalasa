@@ -35,6 +35,7 @@ export async function upsertFloor(
     height: parsed.data.height,
     background_url: parsed.data.background_url ?? null,
   };
+  const isNew = !parsed.data.id;
   const { data, error } = parsed.data.id
     ? await supabase
         .from("floors")
@@ -44,6 +45,27 @@ export async function upsertFloor(
         .single()
     : await supabase.from("floors").insert(payload).select("id").single();
   if (error) return { success: false, error: error.message };
+
+  if (isNew) {
+    // Seed default zone + active layout so the new floor is immediately usable
+    // (drag-drop in editor needs a zone; layout positions sync needs an active layout)
+    const { error: zoneErr } = await supabase.from("zones").insert({
+      name: "Γενική",
+      color: "#3b82f6",
+      sort_order: 0,
+      floor_id: data.id,
+    });
+    if (zoneErr) return { success: false, error: zoneErr.message };
+
+    const { error: layoutErr } = await supabase.from("floor_layouts").insert({
+      floor_id: data.id,
+      name: "Κύρια Διάταξη",
+      is_active: true,
+      sort_order: 0,
+    });
+    if (layoutErr) return { success: false, error: layoutErr.message };
+  }
+
   revalidatePath("/tables");
   revalidatePath("/settings/floor-plan");
   return { success: true, data: { id: data.id } };
@@ -231,19 +253,17 @@ export async function moveTable(input: {
 
   if (layout) {
     // Active layout exists — write to positions; trigger updates tables
-    const { error } = await supabase
-      .from("floor_layout_positions")
-      .upsert(
-        {
-          layout_id: layout.id,
-          table_id: parsed.data.id,
-          x: parsed.data.x,
-          y: parsed.data.y,
-          rotation: parsed.data.rotation ?? 0,
-          zone_id: tbl.zone_id,
-        },
-        { onConflict: "layout_id,table_id" },
-      );
+    const { error } = await supabase.from("floor_layout_positions").upsert(
+      {
+        layout_id: layout.id,
+        table_id: parsed.data.id,
+        x: parsed.data.x,
+        y: parsed.data.y,
+        rotation: parsed.data.rotation ?? 0,
+        zone_id: tbl.zone_id,
+      },
+      { onConflict: "layout_id,table_id" },
+    );
     if (error) return { success: false, error: error.message };
   } else {
     // Defensive fallback — no active layout, write directly

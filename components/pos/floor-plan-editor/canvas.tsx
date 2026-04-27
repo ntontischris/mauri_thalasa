@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { DbTable, DbFloor, DbZone } from "@/lib/types/database";
 import { snapToGrid } from "@/lib/canvas/snap";
 import {
@@ -33,6 +34,7 @@ export function Canvas({
   onMove,
   onPushUndo,
 }: Props) {
+  const router = useRouter();
   const svgRef = useRef<SVGSVGElement>(null);
   const [dragging, setDragging] = useState<{
     id: string;
@@ -41,6 +43,7 @@ export function Canvas({
   } | null>(null);
   const [guides, setGuides] = useState<Guide[]>([]);
   const [overlaps, setOverlaps] = useState<Set<string>>(new Set());
+  const [dropError, setDropError] = useState<string | null>(null);
 
   function svgPoint(e: React.MouseEvent | React.DragEvent): {
     x: number;
@@ -128,8 +131,14 @@ export function Canvas({
     const x = snapToGrid(p.x - preset.width / 2, GRID);
     const y = snapToGrid(p.y - preset.height / 2, GRID);
     const firstZone = zones[0];
-    if (!firstZone) return;
-    await upsertTable({
+    if (!firstZone) {
+      setDropError(
+        "Δεν υπάρχει ζώνη σε αυτόν τον όροφο. Πρόσθεσε ζώνη πρώτα από το panel «Ζώνες».",
+      );
+      return;
+    }
+    setDropError(null);
+    const result = await upsertTable({
       number: nextTableNumber(tables),
       capacity: preset.capacity,
       shape: preset.shape,
@@ -140,6 +149,11 @@ export function Canvas({
       rotation: 0,
       zone_id: firstZone.id,
     });
+    if (!result.success) {
+      setDropError(result.error ?? "Αποτυχία προσθήκης τραπεζιού");
+      return;
+    }
+    router.refresh();
   }
 
   function handleDragOver(e: React.DragEvent) {
@@ -148,119 +162,126 @@ export function Canvas({
   }
 
   return (
-    <svg
-      ref={svgRef}
-      viewBox={`0 0 ${floor.width} ${floor.height}`}
-      className="flex-1 bg-background border"
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-      onClick={handleCanvasClick}
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-    >
-      <defs>
-        <pattern
-          id="grid"
-          width={GRID}
-          height={GRID}
-          patternUnits="userSpaceOnUse"
-        >
-          <path
-            d={`M ${GRID} 0 L 0 0 0 ${GRID}`}
-            fill="none"
-            stroke="currentColor"
-            strokeOpacity="0.1"
-            strokeWidth="0.5"
-          />
-        </pattern>
-      </defs>
-      <rect width={floor.width} height={floor.height} fill="url(#grid)" />
-
-      {tables.map((t) => {
-        const zone = zones.find((z) => z.id === t.zone_id);
-        const isSelected = selected.has(t.id);
-        const isOverlapping = overlaps.has(t.id);
-        const fill = zone?.color ?? "#6366f1";
-        return (
-          <g
-            key={t.id}
-            transform={`translate(${t.x}, ${t.y}) rotate(${t.rotation}, ${t.width / 2}, ${t.height / 2})`}
-            onMouseDown={(e) => handleTableMouseDown(e, t)}
-            onDragStart={(e) => {
-              e.dataTransfer.setData("application/x-mauri-table-id", t.id);
-              e.dataTransfer.effectAllowed = "move";
-            }}
-            {...({ draggable: true } as Partial<
-              React.HTMLAttributes<SVGGElement>
-            >)}
-            className="cursor-move"
+    <div className="relative flex-1 flex">
+      {dropError && (
+        <div className="absolute left-2 top-2 z-10 max-w-md rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          {dropError}
+          <button
+            type="button"
+            onClick={() => setDropError(null)}
+            className="ml-2 underline"
           >
-            {t.shape === "round" ? (
-              <ellipse
-                cx={t.width / 2}
-                cy={t.height / 2}
-                rx={t.width / 2}
-                ry={t.height / 2}
-                fill={fill}
-                stroke={
-                  isOverlapping ? "#ef4444" : isSelected ? "#fff" : "#000"
-                }
-                strokeWidth={isSelected || isOverlapping ? 2 : 1}
-              />
-            ) : (
-              <rect
-                width={t.width}
-                height={t.height}
-                fill={fill}
-                stroke={
-                  isOverlapping ? "#ef4444" : isSelected ? "#fff" : "#000"
-                }
-                strokeWidth={isSelected || isOverlapping ? 2 : 1}
-                rx={4}
-              />
-            )}
-            <text
-              x={t.width / 2}
-              y={t.height / 2}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fill="#000"
-              fontSize="12"
-              fontWeight="bold"
-            >
-              {t.label ?? t.number}
-            </text>
-          </g>
-        );
-      })}
-
-      {guides.map((g, i) =>
-        g.orientation === "vertical" ? (
-          <line
-            key={i}
-            x1={g.coord}
-            y1={0}
-            x2={g.coord}
-            y2={floor.height}
-            stroke="#ec4899"
-            strokeDasharray="4 2"
-            strokeWidth={1}
-          />
-        ) : (
-          <line
-            key={i}
-            x1={0}
-            y1={g.coord}
-            x2={floor.width}
-            y2={g.coord}
-            stroke="#ec4899"
-            strokeDasharray="4 2"
-            strokeWidth={1}
-          />
-        ),
+            OK
+          </button>
+        </div>
       )}
-    </svg>
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${floor.width} ${floor.height}`}
+        className="flex-1 bg-background border"
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onClick={handleCanvasClick}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+      >
+        <defs>
+          <pattern
+            id="grid"
+            width={GRID}
+            height={GRID}
+            patternUnits="userSpaceOnUse"
+          >
+            <path
+              d={`M ${GRID} 0 L 0 0 0 ${GRID}`}
+              fill="none"
+              stroke="currentColor"
+              strokeOpacity="0.1"
+              strokeWidth="0.5"
+            />
+          </pattern>
+        </defs>
+        <rect width={floor.width} height={floor.height} fill="url(#grid)" />
+
+        {tables.map((t) => {
+          const zone = zones.find((z) => z.id === t.zone_id);
+          const isSelected = selected.has(t.id);
+          const isOverlapping = overlaps.has(t.id);
+          const fill = zone?.color ?? "#6366f1";
+          return (
+            <g
+              key={t.id}
+              transform={`translate(${t.x}, ${t.y}) rotate(${t.rotation}, ${t.width / 2}, ${t.height / 2})`}
+              onMouseDown={(e) => handleTableMouseDown(e, t)}
+              className="cursor-move"
+            >
+              {t.shape === "round" ? (
+                <ellipse
+                  cx={t.width / 2}
+                  cy={t.height / 2}
+                  rx={t.width / 2}
+                  ry={t.height / 2}
+                  fill={fill}
+                  stroke={
+                    isOverlapping ? "#ef4444" : isSelected ? "#fff" : "#000"
+                  }
+                  strokeWidth={isSelected || isOverlapping ? 2 : 1}
+                />
+              ) : (
+                <rect
+                  width={t.width}
+                  height={t.height}
+                  fill={fill}
+                  stroke={
+                    isOverlapping ? "#ef4444" : isSelected ? "#fff" : "#000"
+                  }
+                  strokeWidth={isSelected || isOverlapping ? 2 : 1}
+                  rx={4}
+                />
+              )}
+              <text
+                x={t.width / 2}
+                y={t.height / 2}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill="#000"
+                fontSize="12"
+                fontWeight="bold"
+              >
+                {t.label ?? t.number}
+              </text>
+            </g>
+          );
+        })}
+
+        {guides.map((g, i) =>
+          g.orientation === "vertical" ? (
+            <line
+              key={i}
+              x1={g.coord}
+              y1={0}
+              x2={g.coord}
+              y2={floor.height}
+              stroke="#ec4899"
+              strokeDasharray="4 2"
+              strokeWidth={1}
+            />
+          ) : (
+            <line
+              key={i}
+              x1={0}
+              y1={g.coord}
+              x2={floor.width}
+              y2={g.coord}
+              stroke="#ec4899"
+              strokeDasharray="4 2"
+              strokeWidth={1}
+            />
+          ),
+        )}
+      </svg>
+    </div>
   );
 }
 
